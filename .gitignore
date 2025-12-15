@@ -1,0 +1,46 @@
+# Environment variables
+.env
+.env.local
+.env.*.local
+*.env
+
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Build output
+dist/
+*/dist/
+.nuxt/
+*/.nuxt/
+.output/
+*/.output/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+backend.log
+frontend.log
+*.pid
+
+# Docker
+docker-compose.override.yml
+
+# Lock files (optional - закомментируйте если хотите версионировать)
+# package-lock.json
+# */package-lock.json
+# bun.lock
+# */bun.lock

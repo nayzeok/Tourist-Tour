@@ -1,0 +1,122 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    container_name: postgres-travel
+    environment:
+      POSTGRES_USER: ${PG_USER:-user}
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-SdjfsfjDAasdj14h124}
+      POSTGRES_DB: ${PG_DATABASE:-travel}
+    ports:
+      - '${PG_PORT:-5433}:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - travel_network
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${PG_USER:-user}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: travel_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-fJsadhjSdasdhsadj3123}
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-fJsadhjSdasdhsadj3123}
+    ports:
+      - '${REDIS_PORT:-6379}:6379'
+    volumes:
+      - redis_data:/data
+    networks:
+      - travel_network
+    healthcheck:
+      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD:-fJsadhjSdasdhsadj3123}', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend (NestJS)
+  backend:
+    build:
+      context: ./travel-back
+      dockerfile: Dockerfile.dev
+    container_name: travel-backend
+    restart: unless-stopped
+    ports:
+      - '${PORT:-3001}:3001'
+    volumes:
+      - ./travel-back:/app
+      - /app/node_modules
+      - /app/dist
+    environment:
+      - NODE_ENV=development
+      - PORT=${PORT:-3001}
+      - APP_LOG_LEVEL=${APP_LOG_LEVEL:-info}
+      - JWT_SECRET=${JWT_SECRET:-askjdklasjd1412423}
+      - SECRET_COOKIE=${SECRET_COOKIE:-asd12sjG777M9wxo<ea9G*,1}
+      - JWT_ACCESS_TTL=${JWT_ACCESS_TTL:-7d}
+      - AUTH_COOKIE_NAME=${AUTH_COOKIE_NAME:-access_token}
+      - AUTH_COOKIE_MAX_AGE_MS=${AUTH_COOKIE_MAX_AGE_MS:-604800000}
+      - AUTH_COOKIE_DOMAIN=${AUTH_COOKIE_DOMAIN:-.localhost}
+      - AUTH_COOKIE_SAME_SITE=${AUTH_COOKIE_SAME_SITE:-lax}
+      - AUTH_COOKIE_SECURE=${AUTH_COOKIE_SECURE:-false}
+      - PG_HOST=postgres
+      - PG_PORT=5432
+      - PG_DATABASE=${PG_DATABASE:-travel}
+      - PG_USER=${PG_USER:-user}
+      - PG_PASSWORD=${PG_PASSWORD:-SdjfsfjDAasdj14h124}
+      - DATABASE_URL=postgresql://${PG_USER:-user}:${PG_PASSWORD:-SdjfsfjDAasdj14h124}@postgres:5432/${PG_DATABASE:-travel}?schema=sample
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-fJsadhjSdasdhsadj3123}
+      - OAUTH_CLIENT_ID=${OAUTH_CLIENT_ID}
+      - OAUTH_CLIENT_SECRET=${OAUTH_CLIENT_SECRET}
+      - MAIL_FROM=${MAIL_FROM}
+      - RUSENDER_KEY=${RUSENDER_KEY}
+    networks:
+      - travel_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: sh -c "npx prisma migrate deploy && npm run start:dev"
+
+  # Frontend (Nuxt)
+  frontend:
+    build:
+      context: ./travel-front
+      dockerfile: Dockerfile.dev
+    container_name: travel-frontend
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+      - '24678:24678'  # Nuxt DevTools
+    volumes:
+      - ./travel-front:/app
+      - /app/node_modules
+      - /app/.nuxt
+      - /app/.output
+    environment:
+      - NODE_ENV=development
+      - NUXT_HOST=0.0.0.0
+      - NUXT_PORT=3000
+    networks:
+      - travel_network
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+    name: travel-postgres-data
+  redis_data:
+    name: travel-redis-data
+
+networks:
+  travel_network:
+    driver: bridge
