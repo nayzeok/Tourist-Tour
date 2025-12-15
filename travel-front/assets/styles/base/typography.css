@@ -1,0 +1,85 @@
+@layer utilities {
+  /* Заголовки */
+  /* .text-h1 {
+    font-family: var(--font-inter);
+    font-size: var(--font-size-h1);
+    line-height: var(--line-height-base);
+    letter-spacing: var(--letter-spacing-base);
+    font-weight: var(--font-weight-bold);
+  }
+
+  .text-h2 {
+    font-family: var(--font-inter);
+    font-size: var(--font-size-h2);
+    line-height: var(--line-height-base);
+    letter-spacing: var(--letter-spacing-base);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .text-h3 {
+    font-family: var(--font-inter);
+    font-size: var(--font-size-h3);
+    line-height: var(--line-height-base);
+    letter-spacing: var(--letter-spacing-base);
+    font-weight: var(--font-weight-semibold);
+  } */
+
+  /* Подзаголовки */
+  /* .text-s1 {
+    font-family: var(--font-inter);
+    font-size: var(--font-size-s1);
+    line-height: var(--line-height-base);
+    letter-spacing: var(--letter-spacing-base);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .text-s2 {
+    font-family: var(--font-inter);
+    font-size: var(--font-size-s2);
+    line-height: var(--line-height-base);
+    letter-spacing: var(--letter-spacing-base);
+    font-weight: var(--font-weight-medium);
+  }
+
+  .text-s3 {
+    font-family: var(--font-inter);
+    font-size: var(--font-size-s3);
+    line-height: var(--line-height-base);
+    letter-spacing: var(--letter-spacing-base);
+    font-weight: var(--font-weight-medium);
+  } */
+
+  /* Основной текст */
+  /* .text-b1 {
+    font-family: var(--font-inter);
+    font-size: var(--font-size-b1);
+    line-height: var(--line-height-base);
+    letter-spacing: var(--letter-spacing-base);
+    font-weight: var(--font-weight-medium);
+  } */
+
+  /* .text-b2 {
+    font-family: var(--font-inter);
+    font-size: var(--font-size-b2);
+    line-height: var(--line-height-base);
+    letter-spacing: var(--letter-spacing-base);
+    font-weight: var(--font-weight-bold);
+  } */
+
+  /* .text-b3 {
+    font-family: var(--font-inter);
+    font-size: var(--font-size-b3);
+    line-height: var(--line-height-base);
+    letter-spacing: var(--letter-spacing-base);
+    font-weight: var(--font-weight-medium);
+  } */
+
+  /* Специальный текст */
+  /* .text-inter-13-bold {
+    font-family: var(--font-inter);
+    font-size: var(--font-size-inter-13);
+    line-height: var(--line-height-base);
+    letter-spacing: var(--letter-spacing-base);
+    font-weight: var(--font-weight-bold);
+  } */
+}

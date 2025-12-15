@@ -1,0 +1,72 @@
+@theme {
+  --font-inter: 'Inter', sans-serif;
+
+  /* Типографика */
+  --letter-spacing-base: -0.02em;
+  --line-height-base: 120%;
+
+  /* Размеры шрифтов */
+  /* --font-size-h1: 20px;
+  --font-size-h2: 18px;
+  --font-size-h3: 16px;
+  --font-size-s1: 15px;
+  --font-size-s2: 14px;
+  --font-size-s3: 13px;
+  --font-size-b1: 12px;
+  --font-size-b2: 11px;
+  --font-size-b3: 11px;
+  --font-size-Inter-13: 13px; */
+
+  /* Веса шрифтов */
+  /* --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700; */
+
+  /* Основные брендовые цвета */
+  --color-primary: #003CFF; /* mainOrange */
+
+  --color-black: #000000; /* black */
+  /* --color-black-90: rgba(23, 23, 21, 0.9); /* black90 */
+  /* --color-black-80: #434342; /* black80 */
+  /* --color-black-60: #656564; /* black60 */
+  /* --color-black-50: #808080; /* black50 */
+  /* --color-black-40: rgba(23, 23, 21, 0.4); /* black40 */
+  /* --color-black-30: #b2b2b1; /* black30 */
+  /* --color-black-20: rgba(0, 0, 0, 0.2); /* black20 */
+  /* --color-black-10: rgba(23, 23, 21, 0.1); /* black10 */
+  /* --color-black-5: rgba(23, 23, 21, 0.05); /* black5 */
+
+  --color-white: #FFFFFF;
+  /* --color-light-gray: #f5f5f5; */
+  /* --color-white-80: rgba(255, 255, 255, 0.8); */
+
+  /* --ui-color-neutral-100: #ececec; */
+
+  /* Градиент */
+
+  /* --gradient-primary: linear-gradient(to bottom, var(--color-gradient-start), var(--color-gradient-end)); */
+
+
+  /* Тени */
+  /* --shadow-button: 0 1px 16.5px 0 rgba(0, 0, 0, 0.1);
+  --shadow-card: 0 0 16.5px 0 rgba(0, 0, 0, 0.08);
+  --shadow-icon: 0 0 8px 0 rgba(0, 0, 0, 0.1);
+  --shadow-icon-2: 0 0 8px 0 rgba(0, 0, 0, 0.3);
+  --shadow-bottomsheet: 0 0 8px 0 rgba(0, 0, 0, 0.1);
+  --shadow-cheap: 0 4px 16.5px 0 rgba(0, 0, 0, 0.1); */
+
+  /* --ui-bg-accented: rgba(23, 23, 21, 0.1); */
+
+  /* Блюр */
+  /* --blur-background: 16px; */
+
+  /* UI */
+  /* --ui-primary: rgb(var(--ui-primary-500)); */
+
+  /* --ui-button-base-padding-y: 10.4px;
+  --ui-button-xl-padding-y: 13px; */
+
+  /* --ui-bg: #ffffff; */
+
+  --ui-border: #f6f6f6;
+}

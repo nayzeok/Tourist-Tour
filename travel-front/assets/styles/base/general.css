@@ -1,0 +1,266 @@
+/**
+ * Базовые стили для тела документа
+ */
+body {
+  font-family: 'Inter', sans-serif;
+  min-height: 100dvh;
+  margin: 0;
+  background-color: #F4F5F6;
+  color: var(--color-black);
+
+  font-size: 16px;
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  line-height: normal;
+  position: relative;
+}
+
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.container-fluid {
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+/* Отключение нативного background при автозаполнении */
+/* input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px transparent inset !important;
+  -webkit-text-fill-color: #434342 !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  transition: background-color 5000s ease-in-out 0s !important;
+}
+
+input:autofill {
+  background-color: transparent !important;
+  background-image: none !important;
+  filter: none !important;
+}
+
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+textarea:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px transparent inset !important;
+  -webkit-text-fill-color: #434342 !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  transition: background-color 5000s ease-in-out 0s !important;
+}  */
+
+
+/**
+ * Фиксы для иконок Nuxt
+ */
+body .nuxt-icon svg {
+  margin-bottom: 0;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.full-height {
+  height: 100dvh;
+}
+
+.min-full-height {
+  min-height: 100dvh;
+}
+
+/* html, body {
+  overflow-x: hidden;
+  touch-action: manipulation;
+} */
+
+button, a, img {
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+
+.nuxt-loading-indicator {
+  background: linear-gradient(to right, #002fff, #A9DEDA) !important;
+  height: 4px; 
+}
+
+.opacity-enter-active,
+.opacity-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.opacity-enter-from,
+.opacity-leave-to {
+  opacity: 0;
+}
+
+
+@layer utilities {
+  .bg-primary {
+    background-color: var(--color-primary);
+  }
+
+  /* .bg-primary-light {
+    background-color: var(--color-primary-light);
+  }
+  
+  .bg-primary-lighter {
+    background-color: var(--color-primary-lighter);
+  }
+  
+  .bg-danger {
+    background-color: var(--color-danger);
+  }
+  
+  .text-primary {
+    color: var(--color-primary);
+  }
+  
+  .text-danger {
+    color: var(--color-danger);
+  }
+  
+  .bg-black {
+    background-color: var(--color-black);
+  }
+  
+  .bg-black-80 {
+    background-color: var(--color-black-80);
+  }
+  
+  .bg-black-60 {
+    background-color: var(--color-black-60);
+  }
+  
+  .bg-black-30 {
+    background-color: var(--color-black-30);
+  }
+  
+  .text-black {
+    color: var(--color-black);
+  }
+
+  .text-base {
+    font-size: var(--font-size-h3);
+    line-height: var(--line-height-base);
+  }
+
+  .text-xl {
+    font-size: var(--font-size-h1);
+    line-height: var(--line-height-base);
+  }
+  
+  .text-black-80 {
+    color: var(--color-black-80);
+  }
+  
+  .text-black-60 {
+    color: var(--color-black-60);
+  }
+  
+  .text-black-30 {
+    color: var(--color-black-30);
+  }
+  
+  .bg-gradient-primary {
+    background-image: var(--gradient-primary);
+  }
+  
+  .shadow-button {
+    box-shadow: var(--shadow-button);
+  }
+  
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+  
+  .shadow-icon {
+    box-shadow: var(--shadow-icon);
+  }
+  
+  .shadow-icon-2 {
+    box-shadow: var(--shadow-icon-2);
+  }
+
+  .shadow-bottomsheet {
+    box-shadow: var(--shadow-bottomsheet);
+  }
+  
+  .shadow-cheap {
+    box-shadow: var(--shadow-cheap);
+  }
+  
+  .backdrop-blur {
+    backdrop-filter: blur(var(--blur-background));
+  } */
+
+  .flex-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+
+  .hide-scrollbar {
+    scrollbar-width: none;
+  }
+  
+  .hide-scrollbar::-webkit-scrollbar:horizontal {
+    display: none;
+  }
+
+  .ring-primary {
+    border-color: var(--color-primary);
+  }
+
+  /* .ring-primary-light {
+    border-color: var(--color-primary-light);
+  } */
+
+  /* .border-gray {
+    border-color: var(--ui-bg-accented);
+  } */
+
+  /* .snap-x {
+    scroll-snap-type: x mandatory;
+  } */
+}
+
+body button {
+  cursor: pointer;
+  user-select: none;
+  
+  /* -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-tap-highlight-color: transparent; */
+}
+
+a {
+  cursor: pointer;
+  user-select: none;
+  /* -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-tap-highlight-color: transparent; */
+}
+
+img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
