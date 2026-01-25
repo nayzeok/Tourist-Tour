@@ -78,6 +78,7 @@ services:
       - OAUTH_CLIENT_SECRET=${OAUTH_CLIENT_SECRET}
       - MAIL_FROM=${MAIL_FROM}
       - RUSENDER_KEY=${RUSENDER_KEY}
+      - API_BASE_URL=${API_BASE_URL:-}
     networks:
       - travel_network
     depends_on:
