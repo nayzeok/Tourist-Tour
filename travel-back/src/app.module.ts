@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common'
 import { ConfigModule, ConfigService } from '@nestjs/config'
+import { ScheduleModule } from '@nestjs/schedule'
 
 import { LoggerModule } from 'nestjs-pino'
 import { randomUUID } from 'crypto'
@@ -8,6 +9,7 @@ import redisConfig from './config/redis.config'
 import oauthConfig from './config/oauth.config'
 import authConfig from './config/auth.config'
 import mailConfig from './config/mail.config'
+import paykeeperConfig from './config/paykeeper.config'
 import { CitiesModule } from '~/app/cities/cities.module'
 import { HttpModule } from '@nestjs/axios'
 import { MailModule, OAuthModule } from '~/services'
@@ -17,12 +19,15 @@ import { RedisModule } from '~/redis/redis.module'
 import { ReservationModule } from '~/app/reservation/reservation.module'
 import { AuthModule } from '~/app/auth/auth.module'
 import { UserModule } from '~/app/user/user.module'
+import { ImageProxyModule } from '~/app/image-proxy/image-proxy.module'
+import { SyncModule } from '~/app/sync/sync.module'
+import { PayKeeperModule } from '~/app/paykeeper/paykeeper.module'
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [redisConfig, oauthConfig, authConfig, mailConfig],
+      load: [redisConfig, oauthConfig, authConfig, mailConfig, paykeeperConfig],
     }),
     LoggerModule.forRootAsync({
       inject: [ConfigService],
@@ -61,6 +66,10 @@ import { UserModule } from '~/app/user/user.module'
     ReservationModule,
     UserModule,
     AuthModule,
+    ImageProxyModule,
+    ScheduleModule.forRoot(),
+    SyncModule,
+    PayKeeperModule,
   ],
 
   controllers: [],

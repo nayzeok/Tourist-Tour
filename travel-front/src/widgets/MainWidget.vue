@@ -31,6 +31,7 @@ const tabs: TabItem[] = [
     name: 'Аренда авто',
     value: 'rent',
     icon: 'c:car',
+    to: '/rent',
   },
 ]
 
@@ -67,7 +68,17 @@ const text = computed(() => {
 </script>
 
 <template>
-  <div class="bg-primary  rounded-b-2xl lg:rounded-b-[64px] px-4 lg:px-0" :class="route.path.includes('/hotels') ? 'pb-10 lg:sticky lg:-top-24 z-10' : 'pb-4 lg:pb-16'">
+  <div 
+    class="px-4 lg:px-0" 
+    :class="[
+      route.path.includes('/booking') 
+        ? 'bg-white pb-4' 
+        : 'bg-primary rounded-b-2xl lg:rounded-b-[64px] pb-4 lg:pb-16',
+      route.path.includes('/hotels') && !route.path.includes('/booking') 
+        ? 'pb-10 lg:sticky lg:-top-24 z-10' 
+        : ''
+    ]"
+  >
     <HeaderWidget />
 
     <div v-if="!route.path.includes('/hotels') " class="  flex flex-col gap-10 container items-center" :class="route.name!=='faq' && route.name !=='support' ? 'py-10 lg:py-20': 'py-10 lg:pt-20'">

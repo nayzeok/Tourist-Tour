@@ -13,6 +13,4 @@ export default defineNuxtPlugin(async () => {
   } catch {
     // ignore status errors during SSR bootstrap
   }
-
-  console.log(auth.isAuthenticated)
 })

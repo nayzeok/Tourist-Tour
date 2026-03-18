@@ -27,6 +27,15 @@ export interface RequestPasswordResponse {
   message: string
 }
 
+export interface ResetPasswordPayload {
+  token: string
+  password: string
+}
+
+export interface ResetPasswordResponse {
+  message: string
+}
+
 export interface RegisterPayload {
   email: string
   firstName?: string
@@ -65,6 +74,13 @@ export function logout() {
 
 export function requestPassword(payload: RequestPasswordPayload) {
   return apiFetch<RequestPasswordResponse>('/auth/request-password', {
+    method: 'POST',
+    body: payload,
+  })
+}
+
+export function resetPassword(payload: ResetPasswordPayload) {
+  return apiFetch<ResetPasswordResponse>('/auth/reset-password', {
     method: 'POST',
     body: payload,
   })

@@ -10,15 +10,10 @@
             Авиабилеты:
           </div>
 
-          <a class="font-light" href="tel:+74957974797">
-            +7 (495) 797-47-97
+          <a class="font-light" href="tel:88007003333">
+            8 (800) 700-33-33
           </a>
         </div>
-
-
-        <a class="font-light" href="mailto:support@agent.ru">
-          support@agent.ru
-        </a>
       </div>
 
       <div class="flex flex-col gap-1">
@@ -27,14 +22,10 @@
             Отели:
           </div>
 
-          <a class="font-light" href="tel:+88002342554">
-            8 (800) 234-25-54
+          <a class="font-light" href="tel:88007003333">
+            8 (800) 700-33-33
           </a>
         </div>
-
-        <a class="font-light" href="mailto:bro@bronevik.com">
-          bro@bronevik.com
-        </a>
       </div>
     </div>
 
@@ -84,6 +75,16 @@
 
         <div>
           1205400052912
+        </div>
+      </div>
+
+      <div class="flex gap-2">
+        <div class="font-bold">
+          Адрес:
+        </div>
+
+        <div>
+          630008, Новосибирская область, г. о. город Новосибирск, г. Новосибирск, ул. Кирова, д. 11, кв. 50
         </div>
       </div>
     </div>

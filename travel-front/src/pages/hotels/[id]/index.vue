@@ -1,7 +1,11 @@
 <script lang="ts" setup>
 import { hotelAmenities } from '~/src/shared/constants'
-import BookingModal from '~/src/entities/offer/BookingModal.vue'
 import type { RoomOffer } from '~/src/entities/offer/Offer.vue'
+import { useImageUrl } from '~/src/shared/utils/imageUrl'
+
+definePageMeta({
+  layout: 'default',
+})
 
 const route = useRoute()
 const router = useRouter()
@@ -22,37 +26,37 @@ const apiParams = computed(() => {
   }
 })
 
+// Уникальный ключ для кэширования, включающий все параметры запроса
+const cacheKey = computed(() => {
+  const { cityId, dates, adultCount, childAges } = apiParams.value
+  return `offer-${route.params.id}-${cityId}-${dates}-${adultCount}-${childAges || ''}`
+})
+
 const {
   data: hotel,
   status,
   refresh,
-} = await useAsyncData<any>(`${route.params.id}`, async () => {
-  // const { cityId, dates, adultCount, childAges } = apiParams.value
-  //
-  // if (!cityId || !dates) {
-  //   return Promise.resolve([])
-  // }
-  //
-  // const params = new URLSearchParams({
-  //   cityId,
-  //   dates,
-  //   ...(adultCount && { adultCount }),
-  //   ...(childAges && { childAges }),
-  // })
+} = await useAsyncData<any>(
+  cacheKey.value,
+  async () => {
+    const { cityId, dates, adultCount, childAges } = apiParams.value
 
-  const { cityId, dates, adultCount, childAges } = apiParams.value
+    const params = new URLSearchParams({
+      cityId,
+      dates,
+      ...(adultCount && { adultCount }),
+      ...(childAges && { childAges }),
+    })
 
-  const params = new URLSearchParams({
-    cityId,
-    dates,
-    ...(adultCount && { adultCount }),
-    ...(childAges && { childAges }),
-  })
-
-  return $fetch(
-    `${useRuntimeConfig().public.apiUrl}/offer/${route.params.id}?${params.toString()}`
-  )
-})
+    return $fetch(
+      `${useRuntimeConfig().public.apiUrl}/offer/${route.params.id}?${params.toString()}`
+    )
+  },
+  {
+    // Предотвращаем дублирование запросов при одновременных вызовах
+    dedupe: 'defer',
+  }
+)
 
 function parseDateSegment(date?: string | null) {
   if (!date) {
@@ -123,28 +127,29 @@ function goBack() {
   })
 }
 
-const bookingOffer = ref<RoomOffer | null>(null)
-const isBookingModalOpen = ref(false)
-
 function openBooking(option: RoomOffer) {
-  bookingOffer.value = option
-  isBookingModalOpen.value = true
+  router.push({
+    path: `/hotels/${propertyId.value}/booking`,
+    query: {
+      ...route.query,
+      ratePlanId: option.ratePlanId,
+      roomTypeId: option.roomTypeId,
+    },
+  })
 }
 
-watch(isBookingModalOpen, (value) => {
-  if (!value) {
-    bookingOffer.value = null
-  }
-})
+// Преобразуем URL изображений для работы с API proxy
+const { getImageUrl } = useImageUrl()
 
 const allImages = computed(() => {
-  const res = hotel.value.offers.reduce((acc, current) => {
-    for (const img of current.images) {
-      acc.add(img)
+  const res = hotel.value.offers.reduce((acc: Set<string>, current: RoomOffer) => {
+    for (const img of current.images || []) {
+      // Преобразуем URL через наш прокси
+      acc.add(getImageUrl(img))
     }
 
     return acc
-  }, new Set())
+  }, new Set<string>())
 
   return [...res]
 })
@@ -169,6 +174,43 @@ const offers = computed(() => {
 
     return acc
   }, {})
+})
+
+const propertyAmenities = computed(() => {
+  const rawPropertyAmenities = hotel.value?.property?.amenities ?? []
+  const rawRoomAmenities = (hotel.value?.offers ?? []).flatMap(
+    (o: any) => o?.amenities ?? [],
+  )
+
+  const source =
+    rawPropertyAmenities.length > 0 ? rawPropertyAmenities : rawRoomAmenities
+
+  const normalized = source
+    .map((a: any) => {
+      const code =
+        typeof a === 'string'
+          ? a
+          : String(a?.code ?? a?.id ?? '').trim()
+      if (!code) return null
+
+      const dictItem = hotelAmenities[code as keyof typeof hotelAmenities]
+      const fallbackTitle =
+        typeof a === 'string'
+          ? code
+          : a?.displayName || a?.name || code
+
+      return {
+        code,
+        icon: dictItem?.icon || 'lucide:circle-help',
+        title: dictItem?.title || fallbackTitle,
+      }
+    })
+    .filter(Boolean) as Array<{ code: string; icon: string; title: string }>
+
+  // Убираем дубли по коду
+  return normalized.filter(
+    (item, idx, arr) => arr.findIndex((x) => x.code === item.code) === idx,
+  )
 })
 
 const basis = computed(() => {
@@ -211,44 +253,36 @@ const basis = computed(() => {
           </div>
         </div>
 
-        <div class="flex items-center justify-between">
-          <div class="text-gray-600 text-sm">
-            {{ hotel.property.address }}
-          </div>
+        <div class="text-gray-600 text-sm">
+          {{ hotel.property.address }}
+        </div>
 
-          <div class="flex-center">
-            <UButton
-              color="neutral"
-              icon="lucide:heart"
-              size="sm"
-              variant="soft"
+        <div v-if="propertyAmenities.length" class="mt-4">
+          <USeparator class="mb-3" />
+          <div class="flex flex-wrap gap-2">
+            <div
+              v-for="amenity in propertyAmenities"
+              :key="amenity.code"
+              class="flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1.5 text-gray-700"
             >
-              Добавить в избранное
-            </UButton>
+              <UIcon :name="amenity.icon" class="w-4 h-4" />
+              <span class="text-xs">
+                {{ amenity.title }}
+              </span>
+            </div>
           </div>
         </div>
       </div>
       
       <div class="h-80 w-full overflow-hidden lg:overflow-visible flex items-stretch">
-        <UCarousel
-          v-slot="{ item }"
-          arrows
-          :items="[...allImages, ...allImages]"
-          loop
-          :ui="{
-            viewport: 'h-full', // <-- тот самый overflow-hidden
-            container: 'h-full items-stretch flex-1',// <-- переопределяем items-start -> items-stretch
-            item: basis, // <-- слайд = 100% высоты контейнера
-            root: 'w-full  rounded-2xl ',
-            arrows: 'opacity-50'
-          }"
-        >
-          <div class="w-full h-full rounded-2xl bg-cover bg-center" :style="{ backgroundImage: `url(${item})` }" />
-        </UCarousel>
+        <div
+          class="w-full h-full rounded-2xl bg-cover bg-center"
+          :style="{ backgroundImage: `url(${allImages[0] || hotel.property.thumbnail || ''})` }"
+        />
       </div>
 
-      <div class="grid lg:grid-cols-[300px_1fr] gap-4">
-        <div class="rounded-2xl bg-white p-4 flex flex-col justify-between gap-1">
+      <div class="grid gap-4">
+        <div class="rounded-2xl bg-white p-4 flex flex-col justify-between gap-1 lg:max-w-[300px]">
           <div class="flex flex-col gap-1">
             <div class="text-sm text-gray-500">
               Заезд
@@ -268,40 +302,6 @@ const basis = computed(() => {
 
             <div class="font-semibold text-primary">
               {{ route.query.dates?.split('-')[1] }}
-            </div>
-          </div>
-        </div>
-      
-        <div class="rounded-2xl bg-white p-4">
-          <div class="font-medium text-md mb-2">
-            Популярные удобства
-          </div>
-
-          <USeparator class="mb-4" />
-        
-          <div class="flex flex-col justify-between gap-1">
-            <div class="flex text-gray-600 items-center gap-2">
-              <UIcon :name="hotelAmenities['parking'].icon" />
-              
-              <span>
-                {{ hotelAmenities['parking'].title }}
-              </span>
-            </div>
-
-            <div class="flex text-gray-600 items-center gap-2">
-              <UIcon :name="hotelAmenities['wifi_internet'].icon" />
-
-              <span>
-                {{ hotelAmenities['wifi_internet'].title }}
-              </span>
-            </div>
-
-            <div class="flex text-gray-600 items-center gap-2">
-              <UIcon :name="hotelAmenities['swimming_pool'].icon" />
-
-              <span>
-                {{ hotelAmenities['swimming_pool'].title }}
-              </span>
             </div>
           </div>
         </div>
@@ -339,15 +339,5 @@ const basis = computed(() => {
         </div>
       </div>
     </div>
-
-    <BookingModal
-      v-model:open="isBookingModalOpen"
-      :guests-count="guestsCount"
-      :hotel-name="hotel.property?.name"
-      :offer="bookingOffer"
-      :property-id="propertyId"
-      :stay="stayDates"
-      @success="refresh"
-    />
   </div>
 </template>

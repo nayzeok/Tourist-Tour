@@ -42,18 +42,8 @@ const items: AccordionItem[] = [
             Телефон:
           </div>
 
-          <a class="font-light" href="tel:+74957974797">
-            +7 (495) 797-47-97
-          </a>
-        </div>
-
-        <div class="flex items-center gap-2">
-          <div class="font-bold">
-            Email:
-          </div>
-
-          <a class="font-light" href="mailto:support@agent.ru">
-            support@agent.ru
+          <a class="font-light" href="tel:88007003333">
+            8 (800) 700-33-33
           </a>
         </div>
       </div>
@@ -68,18 +58,8 @@ const items: AccordionItem[] = [
             Телефон:
           </div>
 
-          <a class="font-light" href="tel:+88002342554">
-            8 (800) 234-25-54
-          </a>
-        </div>
-
-        <div class="flex items-center gap-2">
-          <div class="font-bold">
-            Email:
-          </div>
-
-          <a class="font-light" href="mailto:bro@bronevik.com">
-            bro@bronevik.com
+          <a class="font-light" href="tel:88007003333">
+            8 (800) 700-33-33
           </a>
         </div>
       </div>

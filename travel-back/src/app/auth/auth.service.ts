@@ -3,6 +3,7 @@ import {
   ConflictException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common'
@@ -16,15 +17,20 @@ import { UserService } from '~/app/user/user.service'
 import { MailService } from '~/services/mail.service'
 import type { JwtPayload } from '~/guards/jwt-auth.guard'
 import { UserRole } from '@prisma/client'
+import { RedisService } from '~/redis/redis.service'
 
 const SALT_ROUNDS = 10
+const RESET_PASSWORD_PREFIX = 'reset-password:'
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name)
+
   constructor(
     private readonly users: UserService,
     private readonly jwt: JwtService,
     private readonly mail: MailService,
+    private readonly redis: RedisService,
     private readonly configService: ConfigService,
     @Inject(authConfig.KEY)
     private readonly auth: ConfigType<typeof authConfig>,
@@ -51,6 +57,89 @@ export class AuthService {
     return password.slice(0, length)
   }
 
+  private getSiteUrl() {
+    const raw =
+      this.configService.get<string>('SITE_URL') ||
+      this.configService.get<string>('FRONTEND_URL') ||
+      'https://tourist-tours.ru'
+    return raw.replace(/\/+$/, '')
+  }
+
+  private getDisplayName(details: {
+    email: string
+    firstName?: string | null
+    lastName?: string | null
+  }) {
+    const fullName = [details.firstName, details.lastName]
+      .filter(Boolean)
+      .join(' ')
+      .trim()
+    if (fullName) return fullName
+    return details.email
+  }
+
+  private buildWelcomeTemplateVariables(details: {
+    email: string
+    firstName?: string | null
+    lastName?: string | null
+    tempPassword?: string
+  }) {
+    const siteUrl = this.getSiteUrl()
+    return {
+      name: this.getDisplayName(details),
+      email: details.email,
+      temp_password: details.tempPassword ?? '',
+      login_url: `${siteUrl}/acc`,
+      support_email:
+        this.configService.get<string>('SUPPORT_EMAIL') ??
+        'support@tourist-tours.ru',
+      current_year: new Date().getFullYear(),
+      unsubscribe_url:
+        this.configService.get<string>('RUSENDER_UNSUBSCRIBE_URL') ??
+        `${siteUrl}/unsubscribe`,
+    }
+  }
+
+  private buildPasswordResetTemplateVariables(details: {
+    email: string
+    firstName?: string | null
+    lastName?: string | null
+    resetUrl: string
+    resetTtlLabel: string
+  }) {
+    const siteUrl = this.getSiteUrl()
+    return {
+      name: this.getDisplayName({
+        email: details.email,
+        firstName: details.firstName,
+        lastName: details.lastName,
+      }),
+      email: details.email,
+      reset_ttl: details.resetTtlLabel,
+      reset_url: details.resetUrl,
+      support_email:
+        this.configService.get<string>('SUPPORT_EMAIL') ??
+        'support@tourist-tours.ru',
+      current_year: new Date().getFullYear(),
+      unsubscribe_url:
+        this.configService.get<string>('RUSENDER_UNSUBSCRIBE_URL') ??
+        `${siteUrl}/unsubscribe`,
+    }
+  }
+
+  private getResetTokenKey(token: string) {
+    return `${RESET_PASSWORD_PREFIX}${token}`
+  }
+
+  private getResetPasswordTtlMinutes() {
+    const raw = Number(process.env.RESET_PASSWORD_TTL_MINUTES ?? 15)
+    return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 15
+  }
+
+  private getResetPasswordTtlLabel(minutes: number) {
+    return `${minutes} минут`
+  }
+
   hashPassword(raw: string) {
     return bcrypt.hash(raw, SALT_ROUNDS)
   }
@@ -59,26 +148,78 @@ export class AuthService {
     return bcrypt.compare(raw, hash)
   }
 
-  async issueNewPassword(email: string) {
+  async requestPasswordReset(email: string) {
     const normalizedEmail = email.trim().toLowerCase()
     const user = await this.users.findByEmail(normalizedEmail)
-
     if (!user) {
-      throw new NotFoundException('User not found')
+      this.logger.warn(
+        `Password reset requested for unknown email: ${normalizedEmail}`,
+      )
+      return
     }
 
-    const newPassword = this.generatePassword()
-    const passwordHash = await this.hashPassword(newPassword)
-
-    await this.users.updatePassword(user.id, passwordHash)
+    const ttlMinutes = this.getResetPasswordTtlMinutes()
+    const ttlSeconds = ttlMinutes * 60
+    const resetToken = randomBytes(32).toString('hex')
+    const resetUrl = `${this.getSiteUrl()}/reset-password?token=${encodeURIComponent(resetToken)}`
+    const resetTemplateId = this.configService.get<string>(
+      'RUSENDER_TEMPLATE_RESET',
+    )
+    await this.redis.set(this.getResetTokenKey(resetToken), user.id, ttlSeconds)
 
     await this.mail.sendMail({
       to: normalizedEmail,
-      subject: 'Ваш пароль для входа',
-      text: `Ваш новый пароль: ${newPassword}`,
+      subject: 'Сброс пароля',
+      text: `Для сброса пароля перейдите по ссылке: ${resetUrl}. Ссылка действует ${this.getResetPasswordTtlLabel(ttlMinutes)}.`,
+      ...(resetTemplateId
+        ? {
+            templateId: resetTemplateId,
+            templateVariables: this.buildPasswordResetTemplateVariables({
+              email: normalizedEmail,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              resetUrl,
+              resetTtlLabel: this.getResetPasswordTtlLabel(ttlMinutes),
+            }),
+          }
+        : {}),
     })
+  }
 
-    return { password: newPassword, user: this.users.toPublicUser(user) }
+  async resetPasswordByToken(token: string, password: string) {
+    const normalizedToken = token.trim()
+    if (!normalizedToken) {
+      throw new BadRequestException('Token is required')
+    }
+    if (!password || password.length < 8) {
+      throw new BadRequestException('Password must contain at least 8 characters')
+    }
+
+    const key = this.getResetTokenKey(normalizedToken)
+    const userId = await this.redis.get(key)
+    if (!userId) {
+      throw new BadRequestException(
+        'Ссылка для сброса пароля недействительна или истекла',
+      )
+    }
+
+    const user = await this.users.findById(userId)
+    if (!user) {
+      await this.redis.del(key)
+      throw new BadRequestException(
+        'Ссылка для сброса пароля недействительна или истекла',
+      )
+    }
+
+    const passwordHash = await this.hashPassword(password)
+    await this.users.updatePassword(user.id, passwordHash)
+    await this.redis.del(key)
+
+    await this.mail.sendMail({
+      to: user.email,
+      subject: 'Пароль был изменен',
+      text: 'Ваш пароль был успешно изменен через восстановление доступа.',
+    })
   }
 
   async validateUser(email: string, password: string) {
@@ -202,6 +343,9 @@ export class AuthService {
     if (!existing) {
       const password = this.generatePassword()
       const passwordHash = await this.hashPassword(password)
+      const welcomeTemplateId = this.configService.get<string>(
+        'RUSENDER_TEMPLATE_WELCOME',
+      )
       const created = await this.users.create({
         email,
         passwordHash,
@@ -214,6 +358,17 @@ export class AuthService {
         to: email,
         subject: 'Ваш аккаунт создан',
         text: `Ваш пароль для входа: ${password}`,
+        ...(welcomeTemplateId
+          ? {
+              templateId: welcomeTemplateId,
+              templateVariables: this.buildWelcomeTemplateVariables({
+                email,
+                firstName: details.firstName,
+                lastName: details.lastName,
+                tempPassword: password,
+              }),
+            }
+          : {}),
       })
 
       return { user: created, isNew: true, password }
@@ -253,6 +408,27 @@ export class AuthService {
       firstName: details.firstName ?? null,
       lastName: details.lastName ?? null,
       phone: details.phone ?? null,
+    })
+
+    const welcomeTemplateId = this.configService.get<string>(
+      'RUSENDER_TEMPLATE_WELCOME',
+    )
+
+    await this.mail.sendMail({
+      to: email,
+      subject: 'Регистрация в Tourist Tours',
+      text: 'Ваш аккаунт успешно создан. Теперь вы можете входить и управлять бронированиями в личном кабинете.',
+      ...(welcomeTemplateId
+        ? {
+            templateId: welcomeTemplateId,
+            templateVariables: this.buildWelcomeTemplateVariables({
+              email,
+              firstName: details.firstName,
+              lastName: details.lastName,
+              tempPassword: details.password,
+            }),
+          }
+        : {}),
     })
 
     return {

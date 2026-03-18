@@ -3,6 +3,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common'
 import { AxiosError } from 'axios'
 import { OAuthService } from '~/services/oauth.service'
 import { RedisService } from '~/redis/redis.service'
+import { ImageProxyService } from '~/app/image-proxy/image-proxy.service'
 import {
   GuestCount,
   HotelCard,
@@ -13,13 +14,23 @@ import {
 } from '~/shared'
 import { formatRuDate } from '~/utils/date'
 
+const AGGREGATION_CACHE_TTL_SEC = 120 // 2 мин — повторные запросы с теми же параметрами не дергают API
+
 @Injectable()
 export class SearchService {
   private readonly logger = new Logger(SearchService.name)
+  private readonly tlBase = (process.env.TL_BASE || 'https://partner.qatl.ru').replace(/\/$/, '')
+  private readonly cacheNamespace = this.tlBase.replace(/^https?:\/\//, '')
+  /** Дедупликация одновременных вызовов агрегационного поиска по ключу запроса */
+  private readonly inFlightAggregation = new Map<
+    string,
+    Promise<Map<string, TLRoomStay>>
+  >()
 
   constructor(
     private readonly oauthService: OAuthService,
     private readonly redis: RedisService,
+    private readonly imageProxy: ImageProxyService,
   ) {}
 
   /**
@@ -53,13 +64,14 @@ export class SearchService {
     // 2) Контент: подтащим из кэша/догрузим что отсутствует
     const contentById = await this.getContentForIds(sliced)
 
-    // 3) Search (агрегатор): возьмём минимальные варианты по пачкам
-    const cheapestById = await this.getCheapestByPropertyIds(
-      sliced,
+    // 3) Search (агрегатор): результат кэшируется и дедуплицируется по (cityId, даты, гости, валюта)
+    const cheapestById = await this.getCheapestByPropertyIdsCached(
+      ids,
       arrival,
       departure,
       guests,
       currency,
+      cityId,
     )
 
     // console.log(JSON.stringify(Object.fromEntries(contentById), null, 2))
@@ -111,18 +123,36 @@ export class SearchService {
 
   // ---------- GEO ----------
 
-  private async getPropertyIdsByCity(cityId: string): Promise<string[]> {
-    // Берём всё за один вызов (tall иногда поддерживает пагинацию через next/offset)
-    const url = `https://partner.qatl.ru/api/geo/v1/cities/${cityId}/properties`
-    const resp = await this.oauthService.get<TLGeoPropsResp>(url)
+  private geoCacheKey(cityId: string): string {
+    return `geo:${this.cacheNamespace}:city:${cityId}:properties`
+  }
 
-    return (resp?.properties ?? []).map((p) => p.id)
+  private async getPropertyIdsByCity(cityId: string): Promise<string[]> {
+    // Проверяем кэш (TTL 24 часа)
+    const cacheKey = this.geoCacheKey(cityId)
+    const cached = await this.redis.getJson<string[]>(cacheKey)
+
+    if (cached) {
+      this.logger.debug(`Geo cache hit for city ${cityId}: ${cached.length} properties`)
+      return cached
+    }
+
+    // Берём из API
+    const url = `${this.tlBase}/api/geo/v1/cities/${cityId}/properties`
+    const resp = await this.oauthService.get<TLGeoPropsResp>(url)
+    const ids = (resp?.properties ?? []).map((p) => p.id)
+
+    // Кэшируем на 24 часа (86400 секунд)
+    await this.redis.setJson(cacheKey, ids, 86400)
+    this.logger.log(`Geo API called for city ${cityId}: ${ids.length} properties cached`)
+
+    return ids
   }
 
   // ---------- CONTENT + CACHE ----------
 
   private contentCacheKey(id: string): string {
-    return `hotel:${id}`
+    return `hotel:${this.cacheNamespace}:${id}`
   }
 
   private async getContentForIds(
@@ -161,7 +191,7 @@ export class SearchService {
     id: string,
   ): Promise<TLPropertyContent | null> {
     try {
-      const url = `https://partner.qatl.ru/api/content/v1/properties/${id}`
+      const url = `${this.tlBase}/api/content/v1/properties/${id}`
       const data = await this.oauthService.get<TLPropertyContent>(url)
       // пишем в кэш на сутки
       const cacheKey = this.contentCacheKey(id)
@@ -192,6 +222,74 @@ export class SearchService {
 
   // ---------- SEARCH (AGGREGATOR) ----------
 
+  private aggregationCacheKey(
+    cityId: string,
+    arrival: string,
+    departure: string,
+    guests: GuestCount,
+    currency: string,
+  ): string {
+    const childAges = (guests.childAges ?? []).slice().sort((a, b) => a - b).join(',')
+    return `search:agg:${this.cacheNamespace}:${cityId}:${arrival}:${departure}:${guests.adultCount}:${childAges}:${currency}`
+  }
+
+  /**
+   * Агрегационный поиск с кэшем (Redis) и дедупликацией одновременных запросов.
+   * Исключает повторные POST /v1/properties/room-stays/search для одних и тех же параметров.
+   */
+  private async getCheapestByPropertyIdsCached(
+    ids: string[],
+    arrival: string,
+    departure: string,
+    guests: GuestCount,
+    currency: string,
+    cityId?: string,
+  ): Promise<Map<string, TLRoomStay>> {
+    const cacheKey = cityId
+      ? this.aggregationCacheKey(cityId, arrival, departure, guests, currency)
+      : null
+
+    if (cacheKey) {
+      const cached = await this.redis.getJson<Record<string, TLRoomStay>>(cacheKey)
+      if (cached && typeof cached === 'object') {
+        this.logger.debug(`Aggregation cache hit: ${cacheKey}`)
+        return new Map(Object.entries(cached))
+      }
+
+      const inFlight = this.inFlightAggregation.get(cacheKey)
+      if (inFlight) {
+        this.logger.debug(`Aggregation dedupe: awaiting in-flight for ${cacheKey}`)
+        return inFlight
+      }
+    }
+
+    const run = async (): Promise<Map<string, TLRoomStay>> => {
+      const result = await this.getCheapestByPropertyIds(
+        ids,
+        arrival,
+        departure,
+        guests,
+        currency,
+      )
+      if (cacheKey) {
+        await this.redis.setJson(
+          cacheKey,
+          Object.fromEntries(result),
+          AGGREGATION_CACHE_TTL_SEC,
+        )
+        this.inFlightAggregation.delete(cacheKey)
+      }
+      return result
+    }
+
+    if (cacheKey) {
+      const promise = run()
+      this.inFlightAggregation.set(cacheKey, promise)
+      return promise
+    }
+    return run()
+  }
+
   private async getCheapestByPropertyIds(
     ids: string[],
     arrival: string,
@@ -220,7 +318,7 @@ export class SearchService {
       // console.log(JSON.stringify(body, null, 2))
 
       const resp = await this.oauthService.post<TLSearchAggResp>(
-        'https://partner.qatl.ru/api/search/v1/properties/room-stays/search',
+        `${this.tlBase}/api/search/v1/properties/room-stays/search`,
         body,
       )
 
@@ -236,7 +334,92 @@ export class SearchService {
       }
     }
 
+    // В боевом контуре аггрегатор иногда возвращает пусто при наличии офферов на /properties/{id}/room-stays.
+    // Фоллбек: дотягиваем цены per-property, чтобы список отелей не был пустым.
+    if (out.size === 0 && ids.length > 0) {
+      this.logger.warn('Aggregation returned empty result, using per-property fallback search')
+      return this.getCheapestByPropertyIdsFallback(ids, arrival, departure, guests, currency)
+    }
+
     return out
+  }
+
+  private async getCheapestByPropertyIdsFallback(
+    ids: string[],
+    arrival: string,
+    departure: string,
+    guests: GuestCount,
+    currency: string,
+  ): Promise<Map<string, TLRoomStay>> {
+    const out = new Map<string, TLRoomStay>()
+
+    for (const propertyId of ids) {
+      const roomStays = await this.fetchRoomStaysByProperty(
+        propertyId,
+        arrival,
+        departure,
+        guests,
+        currency,
+      )
+
+      for (const rs of roomStays) {
+        const total = this.rsTotal(rs)
+        const cur = out.get(propertyId)
+        const curTotal = cur ? this.rsTotal(cur) : Number.POSITIVE_INFINITY
+        if (!cur || total < curTotal) {
+          out.set(propertyId, rs)
+        }
+      }
+    }
+
+    return out
+  }
+
+  private async fetchRoomStaysByProperty(
+    propertyId: string,
+    arrival: string,
+    departure: string,
+    guests: GuestCount,
+    currency: string,
+  ): Promise<TLRoomStay[]> {
+    const baseUrl = `${this.tlBase}/api/search/v1/properties/${propertyId}/room-stays`
+    const qs = new URLSearchParams({
+      adults: String(guests.adultCount),
+      arrivalDate: arrival,
+      departureDate: departure,
+      currencyCode: currency,
+    })
+    for (const age of guests.childAges ?? []) {
+      qs.append('childAges', String(age))
+    }
+
+    try {
+      const resp = await this.oauthService.get<{ roomStays: TLRoomStay[] }>(
+        `${baseUrl}?${qs.toString()}`,
+      )
+      if (resp?.roomStays?.length) {
+        return resp.roomStays
+      }
+    } catch {
+      // fallback to POST below
+    }
+
+    const altResp = await this.oauthService.post<{ roomStays: TLRoomStay[] }>(
+      baseUrl,
+      {
+        adults: guests.adultCount,
+        childAges: guests.childAges ?? [],
+        arrivalDate: arrival,
+        departureDate: departure,
+        pricePreference: {
+          currencyCode: currency,
+          minPrice: 0,
+          maxPrice: 100000,
+        },
+      },
+    )
+
+    return altResp?.roomStays ?? []
   }
 
   // ---------- MAPPING ----------
@@ -280,22 +463,26 @@ export class SearchService {
         : rs.roomType?.images?.length
           ? rs.roomType.images
           : content.images) ?? []
-    const thumbnail = thumbImages.map((i) => i.url)
+    // Трансформируем URL через наш прокси
+    const thumbnail = this.imageProxy.transformUrls(
+      thumbImages.map((i) => i.url),
+    )
 
-    // 4) питание/отмена/оплата — как было
+    // 4) питание/отмена/оплата
     const mealCode =
       rs.mealPlanCode ||
       rs.includedServices?.find((s) => s.mealPlanCode)?.mealPlanCode ||
       undefined
     const mealLabel = mealCode ? this.mealLabel(mealCode) : null
 
-    const freeCancel = rs.cancellationPolicy?.freeCancellationPossible
-      ? rs.cancellationPolicy.freeCancellationDeadlineLocal
-        ? `до ${formatRuDate(rs.cancellationPolicy.freeCancellationDeadlineLocal)}`
-        : true
-      : false
-
-    // console.log(JSON.stringify(rs, null, 2))
+    // Политика отмены - передаём полную информацию
+    const cancellationPolicy = {
+      freeCancellationPossible: rs.cancellationPolicy?.freeCancellationPossible ?? false,
+      freeCancellationDeadlineLocal: rs.cancellationPolicy?.freeCancellationDeadlineLocal ?? null,
+      freeCancellationDeadlineUtc: rs.cancellationPolicy?.freeCancellationDeadlineUtc ?? null,
+      penaltyAmount: rs.cancellationPolicy?.penaltyAmount ?? null,
+      penaltyCurrency: currency,
+    }
 
     const payOnSite =
       rs.paymentPolicy?.type === 'OnSite' || rs.paymentType === 'OnSite'
@@ -321,10 +508,13 @@ export class SearchService {
       // КЛЮЧЕВОЕ: берём имя комнаты из Search, иначе из Content
       roomName: rs.roomType?.name ?? rtFromContent?.name ?? 'Номер',
       mealLabel,
-      freeCancel,
       payOnSite,
       price: { value: perNight, currency, per: 'night' },
       guestsNote: `за ночь для ${guestsTotal} гост${this.ruPlural(guestsTotal, 'я', 'ей')}`,
+      checkInTime: content.policy?.checkInTime,
+      checkOutTime: content.policy?.checkOutTime,
+      timeZone: content.timeZone?.id,
+      cancellationPolicy,
     }
   }
 

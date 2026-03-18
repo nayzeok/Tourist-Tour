@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { cancelBooking as apiCancelBooking, calculateCancellationPenalty } from '~/src/shared/api/reservation'
 import { fetchUserBookings } from '~/src/shared/api/user'
 import { useAuthStore } from '~/src/shared/store'
 import { formatISOToDate, formatRubles } from '~/src/shared/utils'
@@ -11,6 +12,7 @@ definePageMeta({
 })
 
 const auth = useAuthStore()
+const toast = useToast()
 await auth.ensureStatus()
 
 const bookings = ref<UserBooking[]>([])
@@ -20,6 +22,20 @@ const pageSize = 10
 const pending = ref(false)
 const errorMessage = ref<string | null>(null)
 
+const bookingToCancel = ref<UserBooking | null>(null)
+const cancelling = ref(false)
+const penaltyAmount = ref<number | null>(null)
+const penaltyLoading = ref(false)
+
+const cancelModalOpen = computed({
+  get: () => !!bookingToCancel.value,
+  set: (v) => {
+    if (!v && !cancelling.value) {
+      bookingToCancel.value = null
+    }
+  },
+})
+
 const totalPages = computed(() => {
   if (total.value === 0) {
     return 1
@@ -28,6 +44,22 @@ const totalPages = computed(() => {
 })
 
 const hasBookings = computed(() => bookings.value.length > 0)
+
+const canCancelBooking = (booking: UserBooking) => {
+  const s = (booking.status || '').toLowerCase()
+  return s !== 'cancelled' && s !== 'canceled' && s !== 'отменено'
+}
+
+const formatBookingStatus = (status?: string | null) => {
+  const normalized = (status || '').toLowerCase()
+  if (normalized === 'cancelled' || normalized === 'canceled') {
+    return 'Отменено'
+  }
+  if (normalized === 'confirmed') {
+    return 'Подтверждено'
+  }
+  return status || '—'
+}
 
 const extractErrorMessage = (error: unknown) => {
   if (error && typeof error === 'object' && 'data' in error) {
@@ -71,6 +103,60 @@ const goToPage = async (nextPage: number) => {
   page.value = nextPage
   await loadBookings()
 }
+
+const openCancelModal = async (booking: UserBooking) => {
+  bookingToCancel.value = booking
+  penaltyAmount.value = null
+  penaltyLoading.value = true
+  try {
+    const result = await calculateCancellationPenalty(booking.number)
+    penaltyAmount.value = result?.penaltyAmount ?? 0
+  } catch {
+    penaltyAmount.value = null
+  } finally {
+    penaltyLoading.value = false
+  }
+}
+
+const closeCancelModal = () => {
+  if (!cancelling.value) {
+    bookingToCancel.value = null
+    penaltyAmount.value = null
+  }
+}
+
+const confirmCancel = async () => {
+  const booking = bookingToCancel.value
+  if (!booking?.number) {
+    return
+  }
+
+  cancelling.value = true
+  try {
+    await apiCancelBooking(booking.number, {
+      expectedPenaltyAmount: penaltyAmount.value ?? undefined,
+    })
+    toast.add({
+      id: 'booking-cancelled',
+      title: 'Бронирование отменено',
+      description: `Бронирование № ${booking.number} отменено.`,
+      color: 'success',
+    })
+    bookingToCancel.value = null
+    penaltyAmount.value = null
+    await loadBookings()
+  } catch (error) {
+    const message = extractErrorMessage(error)
+    toast.add({
+      id: 'booking-cancel-error',
+      title: 'Не удалось отменить бронирование',
+      description: message,
+      color: 'error',
+    })
+  } finally {
+    cancelling.value = false
+  }
+}
 </script>
 
 <template>
@@ -112,7 +198,7 @@ const goToPage = async (nextPage: number) => {
                 Бронирование № {{ booking.number }}
               </p>
               <p class="text-lg font-semibold">
-                {{ booking.status }}
+                {{ formatBookingStatus(booking.status) }}
               </p>
             </div>
             <div
@@ -149,6 +235,18 @@ const goToPage = async (nextPage: number) => {
               Создано: {{ formatISOToDate(booking.createdAt) || '—' }}
             </div>
           </dl>
+
+          <div v-if="canCancelBooking(booking)" class="mt-4 flex justify-end">
+            <UButton
+              color="neutral"
+              variant="soft"
+              size="sm"
+              :disabled="cancelling"
+              @click="openCancelModal(booking)"
+            >
+              Отменить бронирование
+            </UButton>
+          </div>
         </article>
       </div>
 
@@ -179,5 +277,49 @@ const goToPage = async (nextPage: number) => {
         </button>
       </div>
     </div>
+
+    <UModal v-model:open="cancelModalOpen">
+      <template #content>
+        <div class="p-6">
+          <h3 class="text-lg font-semibold">
+            Отменить бронирование?
+          </h3>
+          <p class="mt-2 text-sm text-gray-600">
+            Бронирование № {{ bookingToCancel?.number }} будет отменено. Это действие нельзя отменить.
+          </p>
+
+          <div v-if="penaltyLoading" class="mt-3 text-sm text-gray-500">
+            Расчёт штрафа…
+          </div>
+          <div v-else-if="penaltyAmount != null && penaltyAmount > 0" class="mt-3 rounded-lg bg-red-50 p-3">
+            <p class="text-sm font-medium text-red-700">
+              Штраф за отмену: {{ formatRubles(penaltyAmount) }}
+            </p>
+          </div>
+          <div v-else-if="penaltyAmount === 0" class="mt-3 rounded-lg bg-green-50 p-3">
+            <p class="text-sm font-medium text-green-700">
+              Бесплатная отмена — штраф не взимается
+            </p>
+          </div>
+          <div class="mt-6 flex justify-end gap-3">
+            <UButton
+              color="neutral"
+              variant="soft"
+              :disabled="cancelling"
+              @click="closeCancelModal()"
+            >
+              Нет
+            </UButton>
+            <UButton
+              color="error"
+              :loading="cancelling"
+              @click="confirmCancel"
+            >
+              Отменить бронирование
+            </UButton>
+          </div>
+        </div>
+      </template>
+    </UModal>
   </div>
 </template>

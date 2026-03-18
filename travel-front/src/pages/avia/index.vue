@@ -91,7 +91,9 @@ definePageMeta({
         </div>
       </div>
     </section>
-    <!--    <AviaWidget />-->
+<!--    <ClientOnly>
+      <AviaWidget />
+    </ClientOnly>-->
   </div>
 </template>
 

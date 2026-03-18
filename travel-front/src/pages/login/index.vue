@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
 import { useAuthStore } from '~/src/shared/store'
+import { requestPassword } from '~/src/shared/api/auth'
 
 definePageMeta({
   layout: 'empty',
@@ -37,6 +38,11 @@ const loginError = ref<string | null>(null)
 const registerError = ref<string | null>(null)
 const loginPending = ref(false)
 const registerPending = ref(false)
+const resetPending = ref(false)
+const resetEmail = ref('')
+const resetError = ref<string | null>(null)
+const resetMessage = ref<string | null>(null)
+const showResetForm = ref(false)
 
 const phoneMask = '+7 (###) ###-##-##'
 
@@ -111,6 +117,35 @@ const handleRegister = async () => {
     registerError.value = extractErrorMessage(error)
   } finally {
     registerPending.value = false
+  }
+}
+
+const handlePasswordResetRequest = async () => {
+  const email = resetEmail.value.trim().toLowerCase()
+  if (!email) {
+    resetError.value = 'Введите email'
+    return
+  }
+
+  resetPending.value = true
+  resetError.value = null
+  resetMessage.value = null
+  try {
+    await requestPassword({ email })
+    resetMessage.value =
+      'Если аккаунт существует, мы отправили письмо со ссылкой для восстановления пароля.'
+  } catch (error) {
+    resetError.value = extractErrorMessage(error)
+  } finally {
+    resetPending.value = false
+  }
+}
+
+const toggleResetForm = () => {
+  showResetForm.value = !showResetForm.value
+  if (!showResetForm.value) {
+    resetError.value = null
+    resetMessage.value = null
   }
 }
 </script>
@@ -327,6 +362,42 @@ const handleRegister = async () => {
               Войти
             </span>
           </button>
+
+          <div class="flex-center">
+            <button
+              class="text-sm text-gray-500 hover:text-primary"
+              type="button"
+              @click="toggleResetForm"
+            >
+              {{ showResetForm ? 'Скрыть' : 'Забыли пароль?' }}
+            </button>
+          </div>
+
+          <div v-if="showResetForm" class="rounded-xl border border-gray-200 p-4 space-y-3">
+            <div class="space-y-2">
+              <input
+                v-model="resetEmail"
+                autocomplete="email"
+                class="w-full rounded-xl border border-gray-200 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/40"
+                placeholder="Введите email для восстановления"
+                type="email"
+              >
+              <button
+                class="w-full rounded-xl border border-primary px-4 py-2.5 font-semibold text-primary transition duration-200 hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-60"
+                :disabled="resetPending"
+                type="button"
+                @click="handlePasswordResetRequest"
+              >
+                {{ resetPending ? 'Отправляем...' : 'Восстановить пароль' }}
+              </button>
+            </div>
+            <p v-if="resetError" class="text-sm text-red-500">
+              {{ resetError }}
+            </p>
+            <p v-if="resetMessage" class="text-sm text-green-600">
+              {{ resetMessage }}
+            </p>
+          </div>
 
           <div class="flex-center">
             <button class="text-sm text-gray-500 flex-center cursor-pointer hover:text-primary" type="button" @click="isVisibleReg = true">

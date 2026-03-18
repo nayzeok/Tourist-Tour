@@ -1,5 +1,6 @@
 import { apiFetch } from './http'
 import type {
+  AdminBooking,
   ChangePasswordPayload,
   PaginatedResult,
   PublicUser,
@@ -17,6 +18,17 @@ export function fetchUserBookings(
   } = {}
 ) {
   return apiFetch<PaginatedResult<UserBooking>>('/users/bookings', {
+    query,
+  })
+}
+
+export function fetchAllBookings(
+  query: {
+    page?: number
+    pageSize?: number
+  } = {}
+) {
+  return apiFetch<PaginatedResult<AdminBooking>>('/users/admin/bookings', {
     query,
   })
 }

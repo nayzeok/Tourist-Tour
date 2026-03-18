@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ETM Widget</title>
+    <link rel="stylesheet" href="https://new.etm-system.com/widget/style.min.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: visible !important;
+        }
+
+        /* Z-index для выпадающих элементов */
+        .etm-calendar-wrap,
+        .daterange__calendar,
+        .seats-option,
+        .v-select-container,
+        .autocomplete-list {
+            z-index: 999999 !important;
+            position: fixed !important;
+        }
+
+        /* Кастомные цвета */
+        .button_action-color {
+            background-color: #f05922 !important;
+            border-color: #f05922 !important;
+        }
+
+        .search-panel {
+            background: #fafafa !important;
+        }
+
+        .seats-option__comfort .comfort__class_active {
+            background-color: #f05922 !important;
+            color: #fff !important;
+            border-color: #f05922 !important;
+        }
+
+        .seats-option__minus::after,
+        .seats-option__plus::after {
+            background-color: #fff !important;
+            color: #f05922 !important;
+            border-color: #f05922 !important;
+        }
+
+        .seats-option__comfort .comfort__class {
+            border: 1px solid #f05922 !important;
+        }
+
+        .seats-option__adult,
+        .seats-option__child,
+        .seats-option__baby {
+            text-align: left !important;
+        }
+
+        @media screen and (max-width: 768px) {
+            .etm-calendar-wrap {
+                height: 65vh !important;
+                margin-top: 15px !important;
+            }
+        }
+    </style>
+</head>
+<body>
+<div
+        id="etm-widget-block"
+        data-currency="RUB"
+        data-locale="RU"
+        data-sid="e510c89c83"
+        data-url="https://aviatickets.tourist-tours.ru"
+>
+    <div id="etm-widget-app"></div>
+</div>
+
+<script src="https://new.etm-system.com/widget/app.min.js"></script>
+
+<script>
+    let isExpanded = false;
+
+    // Отправляем высоту родителю
+    function sendHeight() {
+        const height = Math.max(
+            document.body.scrollHeight,
+            document.body.offsetHeight,
+            350 // Минимальная высота
+        );
+
+        window.parent.postMessage({
+            type: 'etm-widget-height',
+            height: height
+        }, '*');
+    }
+
+    // Отправляем состояние (развёрнут или нет)
+    function sendState(expanded) {
+        if (isExpanded !== expanded) {
+            isExpanded = expanded;
+            window.parent.postMessage({
+                type: 'etm-widget-state',
+                isExpanded: expanded
+            }, '*');
+        }
+    }
+
+    // Проверяем, открыты ли выпадающие элементы
+    function checkDropdowns() {
+        const calendar = document.querySelector('.etm-calendar-wrap');
+        const seats = document.querySelector('.seats-option.drop-down');
+        const autocomplete = document.querySelector('.autocomplete-list');
+
+        const hasOpenDropdown = !!(
+            (calendar && window.getComputedStyle(calendar).display !== 'none') ||
+            (seats && window.getComputedStyle(seats).display !== 'none') ||
+            (autocomplete && window.getComputedStyle(autocomplete).display !== 'none')
+        );
+
+        sendState(hasOpenDropdown);
+        sendHeight();
+    }
+
+    // Следим за изменениями в DOM
+    const observer = new MutationObserver(() => {
+        checkDropdowns();
+    });
+
+    // Запускаем наблюдатель после загрузки виджета
+    window.addEventListener('load', () => {
+        setTimeout(() => {
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true,
+                attributes: true,
+                attributeFilter: ['style', 'class']
+            });
+
+            sendHeight();
+        }, 1000);
+    });
+
+    // Проверяем при кликах
+    document.addEventListener('click', () => {
+        setTimeout(checkDropdowns, 100);
+        setTimeout(checkDropdowns, 300);
+    });
+
+    // Закрытие по клику вне виджета
+    document.addEventListener('click', (e) => {
+        setTimeout(() => {
+            const calendar = document.querySelector('.etm-calendar-wrap');
+            const seats = document.querySelector('.seats-option.drop-down');
+
+            if (calendar && window.getComputedStyle(calendar).display === 'none' &&
+                seats && window.getComputedStyle(seats).display === 'none') {
+                sendState(false);
+            }
+        }, 100);
+    });
+</script>
+</body>
+</html>

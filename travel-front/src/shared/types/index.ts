@@ -22,6 +22,16 @@ export interface UserBooking {
   updatedAt: string
 }
 
+export interface AdminBooking extends UserBooking {
+  user: {
+    id: string
+    email: string
+    firstName?: string | null
+    lastName?: string | null
+    phone?: string | null
+  }
+}
+
 export interface PaginatedResult<T> {
   total: number
   page: number

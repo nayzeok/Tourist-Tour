@@ -24,28 +24,42 @@ const apiParams = computed(() => {
   }
 })
 
+// Уникальный ключ для кэширования, включающий все параметры запроса
+const hotelsCacheKey = computed(() => {
+  const { cityId, dates, adultCount, childAges } = apiParams.value
+  return `hotels-${cityId}-${dates}-${adultCount}-${childAges || ''}`
+})
+
 const {
   data: hotels,
   status,
   refresh,
-} = await useAsyncData<Hotel[]>('hotels', () => {
-  const { cityId, dates, adultCount, childAges } = apiParams.value
+} = await useAsyncData<Hotel[]>(
+  hotelsCacheKey.value,
+  () => {
+    const { cityId, dates, adultCount, childAges } = apiParams.value
 
-  if (!cityId || !dates) {
-    return Promise.resolve([])
+    if (!cityId || !dates) {
+      return Promise.resolve([])
+    }
+
+    const params = new URLSearchParams({
+      cityId,
+      dates,
+      ...(adultCount && { adultCount }),
+      ...(childAges && { childAges }),
+    })
+
+    return $fetch(
+      `${useRuntimeConfig().public.apiUrl}/hotels?${params.toString()}`
+    )
+  },
+  {
+    dedupe: 'defer',
+    // SSR-данные передаются клиенту через payload — повторный запрос не нужен
+    getCachedData: (key, nuxtApp) => nuxtApp.payload.data[key] ?? nuxtApp.static.data[key],
   }
-
-  const params = new URLSearchParams({
-    cityId,
-    dates,
-    ...(adultCount && { adultCount }),
-    ...(childAges && { childAges }),
-  })
-
-  return $fetch(
-    `${useRuntimeConfig().public.apiUrl}/hotels?${params.toString()}`
-  )
-})
+)
 
 watch(status, (val) => {
   useReplaceUrlStore.setLoading(val === 'pending')

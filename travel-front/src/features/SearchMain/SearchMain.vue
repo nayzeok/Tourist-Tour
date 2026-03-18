@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useCitiesStore, useReplaceUrl } from '~/src/shared/store'
-import type { Adult } from '.'
+import type { Adult, Guest } from '.'
 
 import {
   CalendarDate,
@@ -36,9 +36,13 @@ const selectedCity = ref<{ label: string; value: string }>()
 const isOpenCalendar = ref(false)
 
 const people = ref<Adult>({
-  adults: 1,
+  guests: [{ type: 'adult' }],
   room: 1,
 })
+
+const adultsCount = ref(1)
+const childrenCount = ref(0)
+const childAges = ref<number[]>([])
 
 function formatDateToUrl(date: CalendarDate): string {
   const day = String(date.day).padStart(2, '0')
@@ -56,15 +60,46 @@ function parseDateFromUrl(dateStr: string): CalendarDate | null {
   }
 }
 
+watch(childrenCount, (newCount, oldCount) => {
+  if (newCount > oldCount) {
+    // Добавляем возраста для новых детей
+    for (let i = oldCount; i < newCount; i++) {
+      childAges.value.push(0)
+    }
+  } else if (newCount < oldCount) {
+    // Удаляем лишние возраста
+    childAges.value = childAges.value.slice(0, newCount)
+  }
+})
+
+function updateChildAge(index: number, age: number) {
+  if (index >= 0 && index < childAges.value.length) {
+    childAges.value[index] = age
+  }
+}
+
 async function goToSearch() {
   const dates =
     modelValue.value.start && modelValue.value.end
       ? `${formatDateToUrl(modelValue.value.start)}-${formatDateToUrl(modelValue.value.end)}`
       : ''
 
-  await router.push(
-    `/hotels?cityId=${selectedCity.value?.value}&dates=${dates}&adultCount=${people.value.adults}`
-  )
+  const childAgesParam = childAges.value.length > 0 ? childAges.value.join(',') : undefined
+
+  const query: Record<string, string> = {
+    cityId: selectedCity.value?.value || '',
+    dates,
+    adultCount: String(adultsCount.value),
+  }
+
+  if (childAgesParam) {
+    query.childAges = childAgesParam
+  }
+
+  await router.push({
+    path: '/hotels',
+    query,
+  })
 
   await new Promise((resolve) => setTimeout(resolve, 0))
 
@@ -217,9 +252,10 @@ onMounted(async () => {
 
           <div class="flex items-center space-x-2">
             <div class="flex items-center space-x-2 font-medium">
-              <div>{{ people?.adults }} -</div>
-
-              <div>Гость</div>
+              <div>{{ adultsCount }} взр.</div>
+              <div v-if="childrenCount > 0">
+                · {{ childrenCount }} реб.
+              </div>
             </div>
 
             <div>·</div>
@@ -233,15 +269,15 @@ onMounted(async () => {
         </div>
 
         <template #content>
-          <div class="size-full flex flex-col w-[280px]">
-            <div class="flex items-center justify-between p-4 flex-1">
-              <div class="flex items-center justify-between flex-1">
+          <div class="size-full flex flex-col w-[320px] max-h-[500px]">
+            <div class="flex flex-col gap-3 p-4 overflow-y-auto">
+              <div class="flex items-center justify-between">
                 <div class="font-medium text-base">
-                  Гость
+                  Взрослые
                 </div>
 
                 <UInputNumber
-                  v-model="people.adults"
+                  v-model="adultsCount"
                   class="w-30 overflow-hidden rounded-xl !select-none ring-1 ring-black/5"
                   :max="15"
                   :min="1"
@@ -251,11 +287,57 @@ onMounted(async () => {
                   }"
                 />
               </div>
+
+              <USeparator />
+
+              <div class="flex items-center justify-between">
+                <div class="font-medium text-base">
+                  Дети
+                </div>
+
+                <UInputNumber
+                  v-model="childrenCount"
+                  class="w-30 overflow-hidden rounded-xl !select-none ring-1 ring-black/5"
+                  :max="15"
+                  :min="0"
+                  size="xl"
+                  :ui="{
+                    base: 'rounded-lg ring-0 focus-visible:ring-transparent',
+                  }"
+                />
+              </div>
+
+              <div v-if="childrenCount > 0" class="flex flex-col gap-2 mt-2">
+                <div class="text-sm font-medium text-gray-700">
+                  Возраст детей:
+                </div>
+
+                <div
+                  v-for="(age, index) in childAges"
+                  :key="index"
+                  class="flex items-center justify-between gap-2 p-2 bg-gray-50 rounded-lg"
+                >
+                  <label class="text-sm text-gray-600">
+                    Ребенок {{ index + 1 }}
+                  </label>
+
+                  <USelectMenu
+                    :model-value="age"
+                    class="w-28"
+                    :items="Array.from({ length: 18 }, (_, i) => ({ label: `${i} лет`, value: i }))"
+                    option-attribute="label"
+                    placeholder="Возраст"
+                    size="sm"
+                    value-attribute="value"
+                    @update:model-value="(val) => updateChildAge(index, val)"
+                  />
+                </div>
+              </div>
             </div>
 
             <USeparator />
 
-            <div class="flex items-center justify-between p-4 flex-1">
+            <div class="flex items-center justify-between p-4">
               <div class="flex items-center justify-between flex-1">
                 <div class="font-medium text-base">
                   Номера

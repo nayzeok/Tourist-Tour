@@ -38,6 +38,22 @@ definePageMeta({
 
         <div class="absolute bottom-0 left-0 bag-image" />
       </div>
+
+      <div class="flex flex-col overflow-hidden items-center h-78 flex-1 gap-6 lg:gap-2 px-4 relative car-image bg-white rounded-2xl py-6">
+        <div class="font-semibold text-xl text-center max-w-75">
+          Аренда <br> автомобилей
+        </div>
+
+        <div class="z-100 text-center max-w-75 text-xs lg:text-center">
+          Прокат авто по всей России — выберите даты и оформите заявку
+        </div>
+
+        <NuxtLink class="bg-[#F4F5F6] rounded-xl z-10 mt-auto px-4 lg:py-2 lg:px-8 text-xs font-bold flex-center h-10 lg:h-14 text-black hover:bg-primary hover:text-white transition" to="/rent">
+          Арендовать авто
+        </NuxtLink>
+
+        <div class="absolute bottom-0 left-0 car-key-image" />
+      </div>
     </div>
 
     <div class="flex justify-between items-stretch gap-4 lg:gap-10 lg:flex-row flex-col">
@@ -133,6 +149,23 @@ definePageMeta({
   z-index: 0;
 }
 
+.car-image {
+  background-image: url('/images/car-key.png');
+  background-position: right bottom;
+  background-repeat: no-repeat;
+  background-size: 55%;
+}
+
+.car-key-image {
+  background-image: url('/images/car-key.png');
+  background-size: contain;
+  background-position: left bottom;
+  background-repeat: no-repeat;
+  width: 180px;
+  height: 180px;
+  z-index: 0;
+}
+
 @media screen and (max-width: 768px) {
   .plane-image {
     background-image: url('/images/plane.png');
@@ -166,6 +199,15 @@ definePageMeta({
     width: 90px;
     height: 90px;
     z-index: 0;
+  }
+
+  .car-image {
+    background-size: 35%;
+  }
+
+  .car-key-image {
+    width: 110px;
+    height: 110px;
   }
 }
 </style>

@@ -42,6 +42,30 @@ export interface UserBookingView {
   updatedAt: Date
 }
 
+export interface AdminBookingView extends UserBookingView {
+  user: {
+    id: string
+    email: string
+    firstName?: string | null
+    lastName?: string | null
+    phone?: string | null
+  }
+}
+
+export interface BookingNotificationContext {
+  number: string
+  propertyId?: string | null
+  arrivalDate?: Date | null
+  departureDate?: Date | null
+  totalAmount?: number | null
+  currency?: string | null
+  user: {
+    email: string
+    firstName?: string | null
+    lastName?: string | null
+  }
+}
+
 export interface SaveBookingInput {
   number: string
   status: string
@@ -89,12 +113,12 @@ export class UserService {
   }
 
   updateProfile(
-    userId: string,
-    data: {
-      firstName?: string | null
-      lastName?: string | null
-      phone?: string | null
-    },
+      userId: string,
+      data: {
+        firstName?: string | null
+        lastName?: string | null
+        phone?: string | null
+      },
   ): Promise<User | null> {
     const updateData: Prisma.UserUpdateInput = {}
     if (data.firstName !== undefined) updateData.firstName = data.firstName
@@ -130,9 +154,9 @@ export class UserService {
   }
 
   async getBookings(
-    userId: string,
-    page: number,
-    pageSize: number,
+      userId: string,
+      page: number,
+      pageSize: number,
   ): Promise<PaginatedBookings<UserBookingView>> {
     const safePage = Math.max(page, 1)
     const safePageSize = Math.min(Math.max(pageSize, 1), 100)
@@ -169,6 +193,65 @@ export class UserService {
     }
   }
 
+  /**
+   * Получить все бронирования (для суперадмина)
+   */
+  async getAllBookings(
+      page: number,
+      pageSize: number,
+  ): Promise<PaginatedBookings<AdminBookingView>> {
+    const safePage = Math.max(page, 1)
+    const safePageSize = Math.min(Math.max(pageSize, 1), 100)
+    const skip = (safePage - 1) * safePageSize
+
+    const [total, items] = await Promise.all([
+      this.db.booking.count(),
+      this.db.booking.findMany({
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: safePageSize,
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+              phone: true,
+            },
+          },
+        },
+      }),
+    ])
+
+    return {
+      total,
+      page: safePage,
+      pageSize: safePageSize,
+      items: items.map((booking) => ({
+        id: booking.id,
+        number: booking.number,
+        status: booking.status,
+        propertyId: booking.propertyId,
+        arrivalDate: booking.arrivalDate,
+        departureDate: booking.departureDate,
+        guestsCount: booking.guestsCount,
+        totalAmount: booking.totalAmount,
+        currency: booking.currency,
+        payload: booking.payload,
+        createdAt: booking.createdAt,
+        updatedAt: booking.updatedAt,
+        user: {
+          id: booking.user.id,
+          email: booking.user.email,
+          firstName: booking.user.firstName,
+          lastName: booking.user.lastName,
+          phone: booking.user.phone,
+        },
+      })),
+    }
+  }
+
   saveBooking(userId: string, payload: SaveBookingInput): Promise<Booking> {
     return this.db.booking.upsert({
       where: { number: payload.number },
@@ -182,9 +265,9 @@ export class UserService {
         totalAmount: payload.totalAmount ?? null,
         currency: payload.currency ?? null,
         payload:
-          payload.payload === undefined || payload.payload === null
-            ? Prisma.JsonNull
-            : payload.payload,
+            payload.payload === undefined || payload.payload === null
+                ? Prisma.JsonNull
+                : payload.payload,
       },
       create: {
         userId,
@@ -197,10 +280,45 @@ export class UserService {
         totalAmount: payload.totalAmount ?? null,
         currency: payload.currency ?? null,
         payload:
-          payload.payload === undefined || payload.payload === null
-            ? Prisma.JsonNull
-            : payload.payload,
+            payload.payload === undefined || payload.payload === null
+                ? Prisma.JsonNull
+                : payload.payload,
       },
     })
+  }
+
+  async updateBookingStatus(number: string, status: string): Promise<void> {
+    await this.db.booking.updateMany({
+      where: { number },
+      data: { status },
+    })
+  }
+
+  async getBookingNotificationContext(
+    number: string,
+  ): Promise<BookingNotificationContext | null> {
+    const booking = await this.db.booking.findFirst({
+      where: { number },
+      include: {
+        user: {
+          select: {
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    })
+    if (!booking) return null
+
+    return {
+      number: booking.number,
+      propertyId: booking.propertyId,
+      arrivalDate: booking.arrivalDate,
+      departureDate: booking.departureDate,
+      totalAmount: booking.totalAmount,
+      currency: booking.currency,
+      user: booking.user,
+    }
   }
 }

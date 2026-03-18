@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import type { Hotel } from '~/src/entities/hotelListItem'
 import { hotelAmenities } from '~/src/shared/constants'
+import { useImageUrl } from '~/src/shared/utils/imageUrl'
 
 const props = defineProps<{ hotel: Hotel }>()
 const router = useRouter()
 const route = useRoute()
 const viewport = useViewport()
+
+// Преобразуем URL изображений для работы с API proxy
+const { getImageUrls } = useImageUrl()
+const thumbnailUrls = computed(() => getImageUrls(props.hotel.thumbnail))
 
 const apiParams = computed(() => {
   const cityId = route.query.cityId as string
@@ -24,6 +29,49 @@ const apiParams = computed(() => {
 const formatPrice = (n?: number) =>
   typeof n === 'number' ? n.toLocaleString('ru-RU') : ''
 
+const formatTimeWithTimezone = (time?: string, timeZone?: string) => {
+  if (!time) return ''
+  
+  if (!timeZone) {
+    return time
+  }
+  
+  try {
+    // Создаем дату с указанным временем
+    const [hours, minutes] = time.split(':')
+    const now = new Date()
+    const date = new Date(Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+      Number(hours) || 0,
+      Number(minutes) || 0,
+      0
+    ))
+    
+    // Получаем короткое название часового пояса (например, MSK, GMT+3)
+    const formatter = new Intl.DateTimeFormat('ru-RU', {
+      timeZone,
+      timeZoneName: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+    
+    const parts = formatter.formatToParts(date)
+    const tzName = parts.find(part => part.type === 'timeZoneName')?.value || ''
+    
+    // Если получили название часового пояса, добавляем его
+    if (tzName) {
+      return `${time} ${tzName}`
+    }
+    
+    return time
+  } catch {
+    // Если не удалось определить часовой пояс, просто возвращаем время
+    return time
+  }
+}
+
 const mealBadge = computed(() => {
   // если пришёл явный ярлык питания (например, "Завтрак")
   if (props.hotel.mealLabel) {
@@ -41,21 +89,125 @@ const mealBadge = computed(() => {
   }
 })
 
+/**
+ * Форматирует дедлайн отмены с датой, временем и часовым поясом
+ */
+const formatCancellationDeadline = (deadlineLocal?: string | null, timeZone?: string) => {
+  if (!deadlineLocal) return ''
+  
+  try {
+    const date = new Date(deadlineLocal)
+    if (isNaN(date.getTime())) return deadlineLocal
+    
+    // Форматируем дату и время
+    const dateStr = date.toLocaleDateString('ru-RU', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    })
+    
+    const timeStr = date.toLocaleTimeString('ru-RU', {
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+    
+    // Получаем название часового пояса
+    let tzStr = ''
+    if (timeZone) {
+      try {
+        const formatter = new Intl.DateTimeFormat('ru-RU', {
+          timeZone,
+          timeZoneName: 'short',
+        })
+        const parts = formatter.formatToParts(date)
+        tzStr = parts.find(part => part.type === 'timeZoneName')?.value || ''
+      } catch {
+        // Игнорируем ошибки форматирования
+      }
+    }
+    
+    return tzStr ? `${dateStr} ${timeStr} ${tzStr}` : `${dateStr} ${timeStr}`
+  } catch {
+    return deadlineLocal
+  }
+}
+
+/**
+ * Получает символ валюты
+ */
+const getCurrencySymbol = (currency?: string) => {
+  const symbols: Record<string, string> = {
+    RUB: '₽',
+    USD: '$',
+    EUR: '€',
+    GBP: '£',
+  }
+  return symbols[currency || 'RUB'] || currency || '₽'
+}
+
+/**
+ * Бейдж политики отмены с полной информацией
+ * 
+ * Сценарии:
+ * 1) 100% бесплатная отмена - freeCancellationPossible=true, deadline=null, penalty=null
+ * 2) Бесплатно до даты, потом штраф - freeCancellationPossible=true, deadline заполнен, penalty заполнен
+ * 3) Отмена всегда платная - freeCancellationPossible=false, penalty заполнен
+ */
 const cancelBadge = computed(() => {
-  if (props.hotel.freeCancel) {
-    // true | "до 12.10.2025"
-    const tail =
-      typeof props.hotel.freeCancel === 'string'
-        ? ` ${props.hotel.freeCancel}`
-        : ''
+  const policy = props.hotel.cancellationPolicy
+  const timeZone = props.hotel.timeZone
+  
+  if (!policy) {
     return {
-      text: `Беспл. отмена${tail}`,
+      text: 'Условия отмены уточняйте',
+      positive: false,
+      icon: 'i-lucide-rotate-ccw',
+    }
+  }
+  
+  const { freeCancellationPossible, freeCancellationDeadlineLocal, penaltyAmount, penaltyCurrency } = policy
+  const hasPenalty = penaltyAmount != null && penaltyAmount > 0
+  const hasDeadline = !!freeCancellationDeadlineLocal
+  const currencySymbol = getCurrencySymbol(penaltyCurrency)
+  
+  // Сценарий 1: 100% бесплатная отмена (без дедлайна и штрафа)
+  if (freeCancellationPossible && !hasDeadline && !hasPenalty) {
+    return {
+      text: 'Бесплатная отмена в любое время',
       positive: true,
       icon: 'i-lucide-rotate-ccw',
     }
   }
+  
+  // Сценарий 2: Бесплатно до даты, потом штраф
+  if (freeCancellationPossible && hasDeadline) {
+    const formattedDeadline = formatCancellationDeadline(freeCancellationDeadlineLocal, timeZone)
+    
+    let text = `Бесплатная отмена до ${formattedDeadline}`
+    
+    if (hasPenalty) {
+      text += `, далее штраф ${formatPrice(penaltyAmount)} ${currencySymbol}`
+    }
+    
+    return {
+      text,
+      positive: true,
+      icon: 'i-lucide-rotate-ccw',
+    }
+  }
+  
+  // Сценарий 3: Отмена всегда платная
+  if (!freeCancellationPossible && hasPenalty) {
+    return {
+      text: `Отмена платная: штраф ${formatPrice(penaltyAmount)} ${currencySymbol}`,
+      positive: false,
+      icon: 'i-lucide-rotate-ccw',
+    }
+  }
+  
+  // Фоллбэк
   return {
-    text: 'Без беспл. отмены',
+    text: 'Без бесплатной отмены',
     positive: false,
     icon: 'i-lucide-rotate-ccw',
   }
@@ -120,10 +272,10 @@ function goToHotel() {
     <div class="flex items-stretch flex-col lg:flex-row h-full">
       <div class="rounded-2xl lg:w-80 w-full h-60 lg:h-auto overflow-hidden">
         <UCarousel
-          v-if="hotel.thumbnail && hotel.thumbnail.length > 0"
+          v-if="thumbnailUrls && thumbnailUrls.length > 0"
           v-slot="{ item }"
           class="h-full"
-          :items="hotel.thumbnail"
+          :items="thumbnailUrls"
           loop
           :ui="{
             viewport: 'h-full', // <-- тот самый overflow-hidden
@@ -163,6 +315,20 @@ function goToHotel() {
             <p class="mt-2 text-gray-500 text-xs">
               {{ hotel.address }}
             </p>
+
+            <!-- Преимущества под отелем -->
+            <div v-if="hotel.amenities?.length" class="flex justify-start gap-2 mt-3 mb-2 flex-wrap">
+              <div
+                v-for="code in hotel.amenities.slice(0, 6)"
+                :key="code"
+                class="flex-center rounded-lg ring-1 ring-gray-200 w-8 h-8 text-[#2d3137] text-xs"
+              >
+                <UIcon
+                  class="w-4 h-4"
+                  :name="hotelAmenities[code as keyof typeof hotelAmenities]?.icon || 'lucide:circle-help'"
+                />
+              </div>
+            </div>
           </div>
 
           <div v-if="hotel.rating || hotel.reviewsCount" class="flex items-center gap-2">
@@ -179,25 +345,6 @@ function goToHotel() {
           </div>
         </div>
 
-        <!-- Удобства -->
-        <div v-if="hotel.amenities?.length" class="flex justify-end gap-2 mb-4">
-          <div
-            v-for="code in hotel.amenities.slice(0, 6)"
-            :key="code"
-            class="flex-center rounded-lg ring-1 ring-gray-200 w-8 h-8 text-[#2d3137] text-xs"
-          >
-            <UIcon
-              class="w-4 h-4"
-              :name="hotelAmenities[code as keyof typeof hotelAmenities]?.icon"
-            />
-
-            <!-- 
-            <span class="hidden sm:inline">
-              {{ hotelAmenities[code as keyof typeof hotelAmenities]?.title }}
-            </span> -->
-          </div>
-        </div>
-        
         <!--        <pre>-->
         <!--          {{ hotel }}-->
         <!--        </pre>-->
@@ -248,6 +395,22 @@ function goToHotel() {
                 <UIcon class="w-4 h-4 text-gray-600" :name="paymentBadge.icon" />
                 <span class="truncate">{{ paymentBadge.text }}</span>
               </div>
+
+              <!-- время заезда/выезда -->
+              <div v-if="hotel.checkInTime || hotel.checkOutTime" class="flex items-center gap-1.5 text-gray-700 text-xs">
+                <UIcon class="w-4 h-4 text-gray-600" name="i-lucide-clock" />
+                <span class="truncate">
+                  <template v-if="hotel.checkInTime && hotel.checkOutTime">
+                    Заезд {{ formatTimeWithTimezone(hotel.checkInTime, hotel.timeZone) }}, выезд {{ formatTimeWithTimezone(hotel.checkOutTime, hotel.timeZone) }}
+                  </template>
+                  <template v-else-if="hotel.checkInTime">
+                    Заезд {{ formatTimeWithTimezone(hotel.checkInTime, hotel.timeZone) }}
+                  </template>
+                  <template v-else-if="hotel.checkOutTime">
+                    Выезд {{ formatTimeWithTimezone(hotel.checkOutTime, hotel.timeZone) }}
+                  </template>
+                </span>
+              </div>
             </div>
           </div>
 
@@ -294,6 +457,35 @@ function goToHotel() {
             <p class="mt-2 text-gray-500 text-xs">
               {{ hotel.address }}
             </p>
+
+            <!-- Преимущества под отелем (mobile) -->
+            <div v-if="hotel.amenities?.length" class="flex justify-start gap-2 mt-3 mb-2 flex-wrap">
+              <div
+                v-for="code in hotel.amenities.slice(0, 6)"
+                :key="code"
+                class="flex-center rounded-lg ring-1 ring-gray-200 w-7 h-7 text-[#2d3137] text-xs"
+              >
+                <UIcon
+                  class="w-3.5 h-3.5"
+                  :name="hotelAmenities[code as keyof typeof hotelAmenities]?.icon || 'lucide:circle-help'"
+                />
+              </div>
+            </div>
+
+            <div v-if="hotel.checkInTime || hotel.checkOutTime" class="mt-1 text-gray-600 text-xs flex items-center gap-1">
+              <UIcon class="w-3 h-3" name="i-lucide-clock" />
+              <span>
+                <template v-if="hotel.checkInTime && hotel.checkOutTime">
+                  Заезд {{ formatTimeWithTimezone(hotel.checkInTime, hotel.timeZone) }}, выезд {{ formatTimeWithTimezone(hotel.checkOutTime, hotel.timeZone) }}
+                </template>
+                <template v-else-if="hotel.checkInTime">
+                  Заезд {{ formatTimeWithTimezone(hotel.checkInTime, hotel.timeZone) }}
+                </template>
+                <template v-else-if="hotel.checkOutTime">
+                  Выезд {{ formatTimeWithTimezone(hotel.checkOutTime, hotel.timeZone) }}
+                </template>
+              </span>
+            </div>
           </div>
 
           <div v-if="hotel.rating || hotel.reviewsCount" class="flex items-center gap-2">

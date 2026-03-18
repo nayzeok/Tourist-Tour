@@ -73,14 +73,6 @@ const user = computed(() => auth.user)
               {{ user.lastName || '—' }}
             </dd>
           </div>
-          <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-            <dt class="text-gray-500">
-              Роль
-            </dt>
-            <dd class="font-medium uppercase">
-              {{ user.role }}
-            </dd>
-          </div>
         </dl>
       </div>
     </div>

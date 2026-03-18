@@ -172,9 +172,16 @@ export default defineNuxtConfig({
     strict: true,
   },
 
+  vue: {
+    compilerOptions: {
+      isCustomElement: (tag) => tag === 'rentprog-widget',
+    },
+  },
+
   runtimeConfig: {
     public: {
       apiUrl: process.env.BASE_URL || 'https://api.tourist-tours.ru',
+      rentprogToken: process.env.NUXT_PUBLIC_RENTPROG_TOKEN || '',
     },
   },
 
