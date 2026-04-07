@@ -19,5 +19,17 @@ export default defineAppConfig({
         leadingIcon: 'text-neutral-500',
       },
     },
+
+    calendar: {
+      slots: {
+        root: 'rounded-none overflow-hidden',
+      },
+    },
+
+    popover: {
+      slots: {
+        content: 'bg-default shadow-lg rounded-none ring ring-default data-[state=open]:animate-[scale-in_100ms_ease-out] data-[state=closed]:animate-[scale-out_100ms_ease-in] origin-(--reka-popover-content-transform-origin) focus:outline-none pointer-events-auto',
+      },
+    },
   },
 })

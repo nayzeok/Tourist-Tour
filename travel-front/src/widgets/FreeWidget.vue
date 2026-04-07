@@ -11,7 +11,7 @@ const iconSize = computed(() => {
     <div
       class="text-2xl lg:text-3xl container font-semibold text-center max-w-4xl mx-auto"
     >
-      Самые дешевые билеты от 2500+ авиакомпаний
+      Выгодные билеты от 100+ авиакомпаний
     </div>
 
     <UCarousel
@@ -163,14 +163,14 @@ const iconSize = computed(() => {
         >
           <div class="text-base lg:text-2xl font-semibold relative">
             <span>
-              Самые дешевые билеты <br>
+              Выгодные билеты <br>
               напрямую от авиакомпаний
             </span>
 
             <div
               class="absolute text-white -top-12 lg:-top-4 font-semibold -right-0 lg:-right-12 rotate-10 bg-gradient-to-r from-[#FB51CE] to-[#FB2461] text-[10px] lg:text-sm px-4 py-2 rounded-2xl"
             >
-              Свыше 2500 авиакомпаний
+              Свыше 100 авиакомпаний
             </div>
           </div>
 

@@ -74,8 +74,8 @@ const text = computed(() => {
       route.path.includes('/booking') 
         ? 'bg-white pb-4' 
         : 'bg-primary rounded-b-2xl lg:rounded-b-[64px] pb-4 lg:pb-16',
-      route.path.includes('/hotels') && !route.path.includes('/booking') 
-        ? 'pb-10 lg:sticky lg:-top-24 z-10' 
+      route.path.includes('/hotels') && !route.path.includes('/booking')
+        ? 'pb-10 lg:sticky lg:-top-24 z-[200]'
         : ''
     ]"
   >
@@ -84,7 +84,7 @@ const text = computed(() => {
     <div v-if="!route.path.includes('/hotels') " class="  flex flex-col gap-10 container items-center" :class="route.name!=='faq' && route.name !=='support' ? 'py-10 lg:py-20': 'py-10 lg:pt-20'">
       <component :is="text" />
 
-      <div v-if="route.name!=='faq' && route.name !=='support' && route.name !== 'contact' && route.name !== 'about'" class="flex gap-4 justify-center w-full lg:w-auto items-center bg-[#4E97FF] rounded-xl py-3 px-3">
+      <div v-if="route.name!=='faq' && route.name !=='support' && route.name !== 'contact' && route.name !== 'about'" class="flex gap-4 justify-center w-full lg:w-auto items-center bg-[#4E97FF] rounded-xl py-3 px-3 mb-12">
         <template v-for="tab in tabs" :key="tab.value">
           <NuxtLink
             v-if="tab.to"

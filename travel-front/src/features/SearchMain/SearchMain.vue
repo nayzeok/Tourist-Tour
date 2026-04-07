@@ -16,7 +16,9 @@ const useReplaceUrlStore = useReplaceUrl()
 const isLoading = computed(() => useReplaceUrlStore.loading)
 
 const df = new DateFormatter('ru-RU', {
-  dateStyle: 'medium',
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
 })
 
 const modelValue = shallowRef<{
@@ -29,7 +31,18 @@ const modelValue = shallowRef<{
 
 const citiesStore = useCitiesStore()
 
-const cities = ref<{ label: string; value: string }[]>([])
+// Загружаем города на сервере (SSR) — данные сразу доступны при гидрации
+await callOnce('cities', () => citiesStore.getCities())
+
+const citySearch = ref('')
+
+const cities = computed(() => {
+  const q = citySearch.value.trim().toLowerCase()
+  const source = q
+    ? citiesStore.cities.filter((city) => city.name.toLowerCase().includes(q))
+    : citiesStore.cities
+  return source.slice(0, 50).map((city) => ({ label: city.name, value: city.id }))
+})
 
 const selectedCity = ref<{ label: string; value: string }>()
 
@@ -114,18 +127,10 @@ const isUpdatingFromUrl = ref(false)
 const isInitialized = ref(false)
 
 onMounted(async () => {
-  await citiesStore.getCities()
-
-  cities.value = citiesStore.cities.map((city) => {
-    return {
-      label: city.name,
-      value: city.id,
-    }
-  })
-
-  selectedCity.value = cities.value.find(
-    (city) => city.value === route.query.cityId
-  )
+  const cityFromUrl = citiesStore.cities.find((city) => city.id === route.query.cityId)
+  if (cityFromUrl) {
+    selectedCity.value = { label: cityFromUrl.name, value: cityFromUrl.id }
+  }
 
   // Читаем даты из URL в формате DD.MM.YYYY-DD.MM.YYYY
   let datesSet = false
@@ -173,16 +178,26 @@ onMounted(async () => {
 
 <template>
   <div class="container bg-[#4E97FF]  p-4 rounded-2xl">
-    <div class="grid lg:grid-cols-[1fr_1fr_280px_150px] gap-4 lg:gap-2">
+    <!-- Скелетон пока загружаются города -->
+    <div v-if="citiesStore.isLoading" class="grid lg:grid-cols-[1fr_1fr_280px_150px] gap-4 lg:gap-2">
+      <div class="h-14 rounded-xl bg-white/40 animate-pulse" />
+      <div class="h-14 rounded-xl bg-white/40 animate-pulse" />
+      <div class="h-14 rounded-xl bg-white/40 animate-pulse" />
+      <div class="h-14 rounded-xl bg-white/40 animate-pulse" />
+    </div>
+
+    <div v-else class="grid lg:grid-cols-[1fr_1fr_280px_150px] gap-4 lg:gap-2">
       <USelectMenu
         v-model="selectedCity"
         class="h-14 rounded-xl ring-0"
         icon="mingcute:location-line"
         :items="cities"
-        :loading="citiesStore.isLoading"
+        :filter="false"
         placeholder="Выберите город"
         :search-input="{
-          placeholder: 'Поиск по городу...',
+          placeholder: 'Начните вводить город...',
+          modelValue: citySearch,
+          'onUpdate:modelValue': (v: string) => citySearch = v,
         }"
         size="xl"
         trailing-icon=""
@@ -198,7 +213,10 @@ onMounted(async () => {
         </template>
       </USelectMenu>
 
-      <UPopover v-model:open="isOpenCalendar">
+      <UPopover
+        v-model:open="isOpenCalendar"
+        :ui="{ content: 'search-calendar-content' }"
+      >
         <template #default>
           <button
             class="flex items-center px-4 h-14 bg-white rounded-xl relative"
@@ -211,7 +229,7 @@ onMounted(async () => {
               />
             </span>
 
-            <span class="font-medium">
+            <span class="font-medium whitespace-nowrap">
               <template v-if="modelValue.start">
                 <template v-if="modelValue.end">
                   {{ df.format(modelValue.start.toDate(getLocalTimeZone())) }} -
@@ -229,12 +247,15 @@ onMounted(async () => {
         </template>
 
         <template #content>
-          <UCalendar
-            v-model="modelValue"
-            class="p-2"
-            :number-of-months="2"
-            range
-          />
+          <div class="search-calendar-popover">
+            <UCalendar
+              v-model="modelValue"
+              class="p-2 !rounded-none"
+              :number-of-months="2"
+              range
+              :ui="{ root: 'rounded-none' }"
+            />
+          </div>
         </template>
       </UPopover>
 
@@ -375,3 +396,13 @@ onMounted(async () => {
     </div>
   </div>
 </template>
+
+<style>
+/* Убираем скругление у попапа с календарём отелей */
+.search-calendar-popover,
+.search-calendar-popover > *,
+.search-calendar-popover [class*="calendar"],
+.search-calendar-popover [class*="popover"] {
+  border-radius: 0 !important;
+}
+</style>

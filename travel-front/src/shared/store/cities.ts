@@ -21,6 +21,7 @@ export const useCitiesStore = defineStore('cities', () => {
   const isLoading = ref(false)
 
   const getCities = async () => {
+    if (cities.value.length > 0) return
     try {
       isLoading.value = true
       const response = await $fetch<CitiesResponse>(

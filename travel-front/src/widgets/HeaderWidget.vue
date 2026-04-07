@@ -30,57 +30,55 @@ function closeMenu() {
 </script>
 
 <template>
-  <div class="lg:pt-5 bg-primary lg:px-0 flex items-center justify-center gap-4  relative min-h-[65px] border-b lg:pb-5 border-white/20">
-    <NuxtLink class="flex gap-4 lg:absolute lg:left-5" to="/">
-      <Icon class="w-30 h-10" filled name="c:logo" />
-    </NuxtLink>
-  
+  <div class="lg:pt-5 bg-primary lg:px-5 flex items-center justify-between relative min-h-[65px] border-b lg:pb-5 border-white/20">
     <template v-if="!viewport.isLessThan('lg')">
-      <div class="flex gap-8 items-center -translate-x-[135px] text-xs">
+      <!-- Левая часть: лого + ссылки -->
+      <div class="flex items-center gap-8 text-xs">
+        <NuxtLink to="/">
+          <Icon class="w-30 h-10" filled name="c:logo" />
+        </NuxtLink>
         <div class="flex gap-8 items-center text-white font-semibold">
           <NuxtLink to="/faq">
             Вопрос-ответ
           </NuxtLink>
-
           <NuxtLink to="/support">
             Поддержка
           </NuxtLink>
         </div>
-
-        <div class="flex items-center overflow-hidden rounded-xl">
-          <NuxtLink class="flex gap-2 px-6 py-3 bg-[#4E97FF] items-center hover:bg-[#4E97FF]/80 transition-colors duration-300" to="/avia">
-            <span class="flex-center">
-              <Icon class="w-4 h-4 text-white" name="c:plane" />
-            </span>
-
-            <span class="text-white font-semibold">
-              Авиабилеты
-            </span>
-          </NuxtLink>
-
-          <NuxtLink class="flex gap-2 px-6 py-3 bg-[#4E97FF] items-center hover:bg-[#4E97FF]/80 " to="/">
-            <span class="flex-center">
-              <Icon class="w-4 h-4 text-white" name="c:hotel" />
-            </span>
-
-            <span class="text-white font-semibold">
-              Отели
-            </span>
-          </NuxtLink>
-
-          <button class="flex gap-2 px-6 py-3 bg-[#4E97FF] items-center hover:bg-[#4E97FF]/80 " to="/">
-            <span class="flex-center">
-              <Icon class="w-4 h-4 text-white" name="c:car" />
-            </span>
-
-            <span class="text-white font-semibold">
-              Аренда автомобилей
-            </span>
-          </button>
-        </div>
       </div>
-  
-      <div class="absolute right-5 flex gap-8 items-center">
+
+      <!-- Центр: табы (абсолютно по центру) -->
+      <div class="absolute left-1/2 -translate-x-1/2 flex items-center overflow-hidden rounded-xl">
+        <NuxtLink class="flex gap-2 px-6 py-3 bg-[#4E97FF] items-center hover:bg-[#4E97FF]/80 transition-colors duration-300" to="/avia">
+          <span class="flex-center">
+            <Icon class="w-4 h-4 text-white" name="c:plane" />
+          </span>
+          <span class="text-white font-semibold text-xs">
+            Авиабилеты
+          </span>
+        </NuxtLink>
+
+        <NuxtLink class="flex gap-2 px-6 py-3 bg-[#4E97FF] items-center hover:bg-[#4E97FF]/80" to="/hotels">
+          <span class="flex-center">
+            <Icon class="w-4 h-4 text-white" name="c:hotel" />
+          </span>
+          <span class="text-white font-semibold text-xs">
+            Отели
+          </span>
+        </NuxtLink>
+
+        <NuxtLink class="flex gap-2 px-6 py-3 bg-[#4E97FF] items-center hover:bg-[#4E97FF]/80" to="/rent">
+          <span class="flex-center">
+            <Icon class="w-4 h-4 text-white" name="c:car" />
+          </span>
+          <span class="text-white font-semibold text-xs">
+            Аренда автомобилей
+          </span>
+        </NuxtLink>
+      </div>
+
+      <!-- Правая часть: телефон + войти -->
+      <div class="flex gap-8 items-center">
         <NuxtLink class="text-white font-semibold text-xs" to="tel:88007003333">
           8 800 700 33 33
         </NuxtLink>
@@ -108,6 +106,9 @@ function closeMenu() {
     </template>
 
     <template v-else>
+      <NuxtLink to="/">
+        <Icon class="w-24 h-8" filled name="c:logo" />
+      </NuxtLink>
       <div v-if="!isOpenMenu" class="ml-auto text-white flex items-center" @click="openMenu">
         <UIcon name="pajamas:hamburger" size="32" />
       </div>
@@ -128,11 +129,11 @@ function closeMenu() {
             Авиабилеты
           </NuxtLink>
 
-          <NuxtLink to="/" @click="closeMenu">
+          <NuxtLink to="/hotels" @click="closeMenu">
             Проживание
           </NuxtLink>
 
-          <NuxtLink to="/" @click="closeMenu">
+          <NuxtLink to="/rent" @click="closeMenu">
             Прокат автомобилей
           </NuxtLink>
 

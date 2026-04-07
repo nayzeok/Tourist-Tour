@@ -88,6 +88,11 @@ const handleRegister = async () => {
   const normalizedPhone = registerForm.phone.replace(/\D+/g, '').trim()
   const password = registerForm.password
 
+  if (!normalizedPhone || normalizedPhone.length < 11) {
+    registerError.value = 'Введите корректный номер телефона'
+    return
+  }
+
   if (password.length < 8) {
     registerError.value = 'Пароль должен содержать минимум 8 символов'
     return
@@ -106,6 +111,7 @@ const handleRegister = async () => {
       firstName: normalizedFirstName || undefined,
       lastName: normalizedLastName || undefined,
       phone: normalizedPhone || undefined,
+
       password,
     })
 
@@ -160,7 +166,7 @@ const toggleResetForm = () => {
           </span>
 
           <span class="text-xs font-medium text-black/80">
-            Вернутся на сайт
+            Вернуться на сайт
           </span>
         </button>
       </div>
@@ -234,6 +240,7 @@ const toggleResetForm = () => {
               class="w-full rounded-xl border border-gray-200 px-4 py-3 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/40"
               data-maska="+7 (###) ###-##-##"
               placeholder="+7 (___) ___-__-__"
+              required
               type="tel"
             >
           </div>

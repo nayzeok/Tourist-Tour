@@ -66,7 +66,7 @@ const openOferta = () => {
             </NuxtLink>
 
             <div class="text-gray-500 text-xs cursor-pointer" to="/avia">
-              Самые дешевые - проверно
+              На любые направления
             </div>
           </div>
 
@@ -76,7 +76,7 @@ const openOferta = () => {
             </NuxtLink>
 
             <div class="text-gray-500 text-xs">
-              Более 500 тысяч вариантов
+              для ваших путешествий
             </div>
           </div>
 

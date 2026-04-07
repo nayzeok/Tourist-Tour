@@ -228,7 +228,7 @@ const basis = computed(() => {
           </span>
 
           <span class="text-xs font-medium text-black/80">
-            Вернутся к поиску
+            Вернуться к поиску
           </span>
         </button>
       </div>

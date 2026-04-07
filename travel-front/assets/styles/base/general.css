@@ -86,6 +86,14 @@ button, a, img {
 }
 
 
+/* Убираем скругление только у попапа с календарём отелей */
+[data-reka-popper-content-wrapper]:has(.search-calendar-popover) > * {
+  border-radius: 0 !important;
+}
+[data-reka-popper-content-wrapper]:has(.search-calendar-popover) .rounded-lg {
+  border-radius: 0 !important;
+}
+
 .nuxt-loading-indicator {
   background: linear-gradient(to right, #002fff, #A9DEDA) !important;
   height: 4px; 

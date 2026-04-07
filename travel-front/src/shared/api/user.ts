@@ -33,6 +33,20 @@ export function fetchAllBookings(
   })
 }
 
+export function changeEmail(payload: { newEmail: string; currentPassword: string }) {
+  return apiFetch<{ user: PublicUser | null }>('/users/email', {
+    method: 'PATCH',
+    body: payload,
+  })
+}
+
+export function updateProfile(payload: { firstName?: string; lastName?: string; phone?: string }) {
+  return apiFetch<{ user: PublicUser | null }>('/users/me', {
+    method: 'PATCH',
+    body: payload,
+  })
+}
+
 export function updatePassword(payload: ChangePasswordPayload) {
   return apiFetch<{ success: boolean }>('/users/password', {
     method: 'PATCH',

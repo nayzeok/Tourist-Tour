@@ -1,6 +1,6 @@
 <template>
   <div class="container py-10">
-    <div class="etm-widget-wrapper" :class="{ 'widget-expanded': isExpanded }">
+    <div class="etm-widget-wrapper" :style="{ minHeight: widgetHeight + 'px' }">
       <div
           id="etm-widget-block"
           data-currency="RUB"
@@ -17,8 +17,19 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 
+// Preconnect + preload — браузер начинает загрузку сразу, не ожидая mount
+useHead({
+  link: [
+    { rel: 'preconnect', href: 'https://new.etm-system.com' },
+    { rel: 'preload', href: 'https://new.etm-system.com/widget/app.min.js', as: 'script' },
+    { rel: 'preload', href: '/api/widget-styles', as: 'style' },
+  ],
+})
+
 const isExpanded = ref(false)
+const widgetHeight = ref(350)
 let observer: MutationObserver | null = null
+let resizeObserver: ResizeObserver | null = null
 
 // Загружаем стили виджета через прокси для обхода CORS
 const loadWidgetStyles = () => {
@@ -52,29 +63,20 @@ const loadWidgetStyles = () => {
   document.head.appendChild(link)
 }
 
-// Загружаем скрипт виджета
+// Загружаем скрипт виджета (всегда заново, чтобы виджет переинициализировался)
 const loadWidgetScript = () => {
   return new Promise<void>((resolve, reject) => {
     const scriptId = 'etm-widget-script'
-    if (document.getElementById(scriptId)) {
-      console.log('✅ Widget script already loaded')
-      resolve()
-      return
-    }
 
-    console.log('📥 Loading widget script from:', 'https://new.etm-system.com/widget/app.min.js')
+    // Удаляем старый скрипт если есть, чтобы виджет переинициализировался
+    const existing = document.getElementById(scriptId)
+    if (existing) existing.remove()
 
     const script = document.createElement('script')
     script.id = scriptId
-    script.src = 'https://new.etm-system.com/widget/app.min.js'
-    script.onload = () => {
-      console.log('✅ Widget script loaded successfully')
-      resolve()
-    }
-    script.onerror = () => {
-      console.error('❌ Failed to load widget script')
-      reject(new Error('Failed to load widget script'))
-    }
+    script.src = 'https://new.etm-system.com/widget/app.min.js?t=' + Date.now()
+    script.onload = () => resolve()
+    script.onerror = () => reject(new Error('Failed to load widget script'))
     document.body.appendChild(script)
   })
 }
@@ -94,25 +96,46 @@ const checkDropdowns = () => {
   isExpanded.value = hasOpenDropdown
 }
 
+const initObservers = () => {
+  observer = new MutationObserver(() => checkDropdowns())
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['style', 'class'],
+  })
+
+  const widgetEl = document.getElementById('etm-widget-block')
+  if (widgetEl) {
+    resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        widgetHeight.value = Math.max(350, entry.contentRect.height + 20)
+      }
+    })
+    resizeObserver.observe(widgetEl)
+  }
+}
+
+const checkWidgetRendered = (attempts = 0) => {
+  const app = document.getElementById('etm-widget-app')
+  if (app && app.children.length > 0) {
+    initObservers()
+    return
+  }
+  // Виджет ещё не отрисовался — повторяем до 10 раз каждые 500ms
+  if (attempts < 10) {
+    setTimeout(() => checkWidgetRendered(attempts + 1), 500)
+  }
+}
+
 onMounted(async () => {
   try {
     // Загружаем стили и скрипт
     loadWidgetStyles()
     await loadWidgetScript()
 
-    // Инициализируем наблюдатель за изменениями DOM
-    setTimeout(() => {
-      observer = new MutationObserver(() => {
-        checkDropdowns()
-      })
-
-      observer.observe(document.body, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-        attributeFilter: ['style', 'class']
-      })
-    }, 1000)
+    // Ждём пока виджет отрисуется, с retry
+    setTimeout(() => checkWidgetRendered(), 500)
 
     // Проверяем при кликах
     document.addEventListener('click', () => {
@@ -127,6 +150,9 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   if (observer) {
     observer.disconnect()
+  }
+  if (resizeObserver) {
+    resizeObserver.disconnect()
   }
 })
 </script>
@@ -172,6 +198,8 @@ onBeforeUnmount(() => {
   font-family: "Roboto", sans-serif !important;
   background: #fff !important;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15) !important;
+  border-radius: 0 !important;
+  padding: 12px !important;
 }
 
 /* Базовые стили для всех элементов виджета (включая position:fixed элементы) */

@@ -83,7 +83,7 @@ const popular = ref([
 
           <div class="mt-auto">
             <UButton
-              to="/"
+              to="/hotels"
               :ui="{
                 base: 'py-3 px-4 lg:px-10 lg:py-4 rounded-xl font-semibold',
               }"
