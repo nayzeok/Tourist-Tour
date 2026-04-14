@@ -58,7 +58,7 @@ function closeMenu() {
           </span>
         </NuxtLink>
 
-        <NuxtLink class="flex gap-2 px-6 py-3 bg-[#4E97FF] items-center hover:bg-[#4E97FF]/80" to="/hotels">
+        <NuxtLink class="flex gap-2 px-6 py-3 bg-[#4E97FF] items-center hover:bg-[#4E97FF]/80" to="/">
           <span class="flex-center">
             <Icon class="w-4 h-4 text-white" name="c:hotel" />
           </span>
@@ -79,8 +79,8 @@ function closeMenu() {
 
       <!-- Правая часть: телефон + войти -->
       <div class="flex gap-8 items-center">
-        <NuxtLink class="text-white font-semibold text-xs" to="tel:88007003333">
-          8 800 700 33 33
+        <NuxtLink class="text-white font-semibold text-xs" to="tel:88005519000">
+          8 800 551 90 00
         </NuxtLink>
 
         <NuxtLink v-if="auth.isAuthenticated" class="flex gap-4 text-xs items-center bg-[#4E97FF] px-6 py-3 rounded-xl hover:bg-[#4E97FF]/80 " to="/acc">
