@@ -80,6 +80,7 @@ services:
       - PAYKEEPER_PASSWORD=${PAYKEEPER_PASSWORD}
       - PAYKEEPER_SECRET_SEED=${PAYKEEPER_SECRET_SEED}
       - API_BASE_URL=${API_BASE_URL}
+      - RENTPROG_TOKEN=${RENTPROG_TOKEN}
     networks:
       - travel_network
     depends_on:

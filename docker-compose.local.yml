@@ -72,6 +72,11 @@ services:
       - API_BASE_URL=${API_BASE_URL:-http://localhost:3001}
       - TL_BASE=${TL_BASE:-https://partner.tlintegration.com}
       - RENTPROG_TOKEN=${RENTPROG_TOKEN:-}
+      - PAYKEEPER_ENABLED=${PAYKEEPER_ENABLED:-false}
+      - PAYKEEPER_SERVER=${PAYKEEPER_SERVER:-}
+      - PAYKEEPER_USER=${PAYKEEPER_USER:-}
+      - PAYKEEPER_PASSWORD=${PAYKEEPER_PASSWORD:-}
+      - PAYKEEPER_SECRET_SEED=${PAYKEEPER_SECRET_SEED:-}
     networks:
       - travel_network
     depends_on:
