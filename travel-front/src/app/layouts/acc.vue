@@ -16,13 +16,21 @@ const accMenu = computed(() => {
       title: 'Мои бронирования',
       url: '/acc/orders',
     },
+    {
+      title: 'Аренда авто',
+      url: '/acc/rent',
+    },
   ]
 
-  // Для SUPERADMIN добавляем пункт "Все бронирования"
+  // Для SUPERADMIN добавляем пункты админки
   if (auth.user?.role === 'SUPERADMIN') {
     baseMenu.push({
       title: 'Бронирования пользователей',
       url: '/acc/admin/bookings',
+    })
+    baseMenu.push({
+      title: 'Аренда авто (админ)',
+      url: '/acc/admin/rent',
     })
   }
 

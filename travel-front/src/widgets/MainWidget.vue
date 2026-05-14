@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import HotelTitle from '~/src/shared/other/HotelTitle.vue'
 import AviaComponent from '~/src/shared/other/AviaTitle.vue'
+import RentTitle from '~/src/shared/other/RentTitle.vue'
 import Faq from '~/src/shared/other/Faq.vue'
 import Contact from '~/src/shared/other/Contact.vue'
 import Support from '~/src/shared/other/Support.vue'
@@ -53,6 +54,9 @@ const text = computed(() => {
   switch (route.name) {
     case 'avia':
       return AviaComponent
+    case 'rent':
+    case 'rent-cars':
+      return RentTitle
     case 'faq':
       return Faq
     case 'support':
@@ -124,7 +128,9 @@ const text = computed(() => {
     </div>
 
     <SearchMain v-if="$route.path === '/'" :class="route.path.includes('/hotels') ? '!mt-10 ' : ''" />
-    
+
     <AviaWidget v-else-if="$route.name === 'avia'" />
+
+    <RentWidget v-else-if="$route.path.startsWith('/rent') && !$route.path.includes('/booking')" />
   </div>
 </template>

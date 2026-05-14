@@ -4,6 +4,7 @@ import { ru } from '@nuxt/ui/locale'
 
 <template>
   <UApp :locale="ru">
+    <Preloader />
     <NuxtLoadingIndicator />
     <div class="relative z-10">
       <MainWidget />
@@ -14,5 +15,6 @@ import { ru } from '@nuxt/ui/locale'
     </div>
     
     <FooterWidget />
+    <CookieBanner />
   </UApp>
 </template>

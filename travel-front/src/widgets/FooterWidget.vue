@@ -35,6 +35,34 @@ const openOferta = () => {
           >
             Публичная оферта
           </button>
+
+          <NuxtLink
+            to="/agreement"
+            class="text-sm hover:opacity-70 transition-opacity"
+          >
+            Пользовательское соглашение
+          </NuxtLink>
+
+          <NuxtLink
+            to="/policy"
+            class="text-sm hover:opacity-70 transition-opacity"
+          >
+            Политика обработки данных
+          </NuxtLink>
+
+          <NuxtLink
+            to="/privacy"
+            class="text-sm hover:opacity-70 transition-opacity"
+          >
+            Политика конфиденциальности
+          </NuxtLink>
+
+          <NuxtLink
+            to="/cookies"
+            class="text-sm hover:opacity-70 transition-opacity"
+          >
+            Политика cookie
+          </NuxtLink>
         </div>
 
         <div class="flex flex-col gap-2 lg:gap-4 text-sm">
