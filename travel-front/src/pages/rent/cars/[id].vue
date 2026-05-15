@@ -51,6 +51,27 @@ const { data: car, status, error } = await useAsyncData<RentCar>(
 
 const isLoading = computed(() => status.value === 'pending')
 
+// Локальные фото
+const { public: { apiUrl } } = useRuntimeConfig()
+const { data: localPhotos } = await useAsyncData(
+  `car-local-photos-${carId.value}`,
+  () => $fetch<any[]>(`${apiUrl}/car-photos/${carId.value}`).catch(() => []),
+  { dedupe: 'defer' },
+)
+
+function localPhotoUrl(url: string) {
+  if (!url) return ''
+  if (url.startsWith('http')) return url
+  return apiUrl.replace(/\/$/, '') + url
+}
+
+// Объединённая галерея: сначала фото RentProg, потом локальные
+const allImages = computed(() => {
+  const rentprogImages = car.value?.images ?? []
+  const local = (localPhotos.value ?? []).map((p: any) => localPhotoUrl(p.url))
+  return [...rentprogImages, ...local]
+})
+
 // Галерея
 const activePhoto = ref(0)
 
@@ -178,16 +199,16 @@ function goBack() {
         <!-- Галерея -->
         <div class="rounded-2xl overflow-hidden bg-gray-50 h-64 lg:h-80 mb-3 relative">
           <img
-            v-if="car.images?.[activePhoto]"
-            :src="car.images[activePhoto]"
+            v-if="allImages[activePhoto]"
+            :src="allImages[activePhoto]"
             :alt="car.name"
             class="w-full h-full object-contain p-3"
           >
           <div v-else class="w-full h-full flex items-center justify-center text-7xl">🚗</div>
         </div>
-        <div v-if="car.images?.length > 1" class="flex gap-2 overflow-x-auto pb-1">
+        <div v-if="allImages.length > 1" class="flex gap-2 overflow-x-auto pb-1">
           <button
-            v-for="(img, i) in car.images"
+            v-for="(img, i) in allImages"
             :key="i"
             class="flex-shrink-0 w-20 h-14 rounded-xl overflow-hidden border-2 transition"
             :class="activePhoto === i ? 'border-primary' : 'border-transparent'"
