@@ -458,11 +458,11 @@ export class PayKeeperService implements OnModuleInit {
   }
 
   private async sendRentPaymentEmails(booking: any, amount: number): Promise<void> {
-    const fmt = (d: Date) => d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-    const price = amount ? amount.toLocaleString('ru-RU') + ' ₽' : '—'
-    const deposit = booking.depositAmount ? booking.depositAmount.toLocaleString('ru-RU') + ' ₽ (оплачивается при получении авто)' : '—'
+    const fmt = (d: Date) => d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    const price = amount ? amount.toLocaleString('ru-RU') : '—'
+    const depositStr = booking.depositAmount ? booking.depositAmount.toLocaleString('ru-RU') + ' ₽' : '—'
 
-    // Письмо администратору
+    // Письмо администратору (сырой HTML)
     this.mail.sendMail({
       to: 'nayzeok@gmail.com',
       subject: `Оплачено бронирование аренды авто: ${booking.carName}`,
@@ -475,32 +475,34 @@ export class PayKeeperService implements OnModuleInit {
           <li><b>Клиент:</b> ${booking.firstName} ${booking.lastName}</li>
           <li><b>Телефон:</b> ${booking.phone}</li>
           <li><b>Email:</b> ${booking.user?.email || '—'}</li>
-          <li><b>Оплачено:</b> ${price}</li>
-          <li><b>Залог:</b> ${deposit}</li>
+          <li><b>Оплачено:</b> ${price} ₽</li>
+          <li><b>Залог:</b> ${depositStr}</li>
           <li><b>ID брони:</b> ${booking.id}</li>
         </ul>
       `,
     }).catch((e: any) => this.logger.warn(`Admin payment email failed: ${e?.message}`))
 
-    // Письмо клиенту
+    // Письмо клиенту (шаблон Rusender)
     if (booking.user?.email) {
+      const templateId = this.configService.get<string>('RUSENDER_TEMPLATE_RENT_PAYMENT')
       this.mail.sendMail({
         to: booking.user.email,
         subject: `Оплата подтверждена — ${booking.carName}`,
-        html: `
-          <h2>Оплата прошла успешно!</h2>
-          <p>Здравствуйте, ${booking.firstName}!</p>
-          <p>Ваше бронирование автомобиля подтверждено и оплачено.</p>
-          <ul>
-            <li><b>Автомобиль:</b> ${booking.carName}</li>
-            <li><b>Период:</b> ${fmt(booking.startDate)} — ${fmt(booking.endDate)}</li>
-            <li><b>Место выдачи:</b> ${booking.pickupLocation || '—'}</li>
-            <li><b>Оплачено:</b> ${price}</li>
-            <li><b>Залог:</b> ${deposit}</li>
-          </ul>
-          <p>Детали бронирования доступны в <a href="https://tourist-tours.ru/acc/rent/${booking.id}">личном кабинете</a>.</p>
-          <p>По всем вопросам звоните: 8 800 551 9000</p>
-        `,
+        templateId,
+        templateVariables: {
+          name: booking.firstName,
+          car_name: booking.carName,
+          start_date: fmt(booking.startDate),
+          end_date: fmt(booking.endDate),
+          pickup_location: booking.pickupLocation || '—',
+          return_location: booking.returnLocation || '—',
+          total_price: price,
+          deposit_amount: depositStr,
+          booking_url: `https://tourist-tours.ru/acc/rent/${booking.id}`,
+          support_email: 'info@tourist-tours.ru',
+          support_phone: '8 800 551 9000',
+          current_year: new Date().getFullYear(),
+        },
       }).catch((e: any) => this.logger.warn(`User payment email failed: ${e?.message}`))
     }
   }
