@@ -96,6 +96,7 @@ services:
       dockerfile: Dockerfile
       args:
         - BASE_URL=${BASE_URL}
+        - NUXT_PUBLIC_RENTPROG_TOKEN=${NUXT_PUBLIC_RENTPROG_TOKEN}
     container_name: travel-frontend
     restart: unless-stopped
     ports:
