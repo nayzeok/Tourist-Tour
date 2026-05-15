@@ -197,12 +197,13 @@ function goBack() {
       <!-- ЛЕВАЯ ЧАСТЬ -->
       <div>
         <!-- Галерея -->
-        <div class="rounded-2xl overflow-hidden bg-gray-50 h-64 lg:h-80 mb-3 relative">
+        <div class="rounded-2xl overflow-hidden bg-gray-50 h-64 lg:h-80 mb-3 relative" style="max-height:320px">
           <img
             v-if="allImages[activePhoto]"
             :src="allImages[activePhoto]"
             :alt="car.name"
             class="w-full h-full object-contain p-3"
+            style="max-height:320px"
           >
           <div v-else class="w-full h-full flex items-center justify-center text-7xl">🚗</div>
         </div>
