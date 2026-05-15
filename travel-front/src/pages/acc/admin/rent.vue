@@ -178,6 +178,118 @@ async function releaseDeposit(b: RentProgBooking) {
   }
 }
 
+// ─── Профиль пользователя ──────────────────────────────────────────────────
+const profileOpen = ref(false)
+const profileLoading = ref(false)
+const profileError = ref<string | null>(null)
+const profileData = ref<any>(null)
+const profileLocalBooking = ref<any>(null)
+
+async function openProfile(b: RentProgBooking) {
+  profileOpen.value = true
+  profileLoading.value = true
+  profileError.value = null
+  profileData.value = null
+  profileLocalBooking.value = null
+  try {
+    // Найти локальную бронь по rentprogId
+    const local = await $fetch<any>(`${apiUrl}/rent-user/admin/bookings/by-rentprog/${b.id}`, {
+      credentials: 'include',
+    }).catch(() => null)
+    profileLocalBooking.value = local
+
+    if (!local?.userId) {
+      profileError.value = 'Локальное бронирование не найдено. Пользователь мог забронировать без аккаунта.'
+      return
+    }
+
+    // Получить профиль пользователя
+    const profile = await $fetch<any>(`${apiUrl}/rent-user/admin/profile/${local.userId}`, {
+      credentials: 'include',
+    }).catch(() => null)
+    profileData.value = profile
+
+    if (!profile) {
+      profileError.value = 'Профиль пользователя не заполнен.'
+    }
+  } catch (e: any) {
+    profileError.value = e?.data?.message || 'Ошибка загрузки профиля'
+  } finally {
+    profileLoading.value = false
+  }
+}
+
+function formatDate(d?: string | null) {
+  if (!d) return '—'
+  try { return new Date(d).toLocaleDateString('ru-RU') } catch { return d }
+}
+
+// ─── Ручное подтверждение оплаты ────────────────────────────────────────────
+const payConfirmOpen = ref(false)
+const payConfirmBooking = ref<RentProgBooking | null>(null)
+const payConfirmLocalId = ref<string | null>(null)
+const payConfirmForm = ref({ paidAmount: '', paymentStatus: 'paid' as 'unpaid' | 'partial' | 'paid' })
+const payConfirmSaving = ref(false)
+const payConfirmError = ref<string | null>(null)
+const payConfirmSuccess = ref(false)
+
+async function openPayConfirm(b: RentProgBooking) {
+  payConfirmBooking.value = b
+  payConfirmLocalId.value = null
+  payConfirmError.value = null
+  payConfirmSuccess.value = false
+  payConfirmForm.value = {
+    paidAmount: b.paid != null ? String(b.paid) : String(b.total ?? b.rental_cost ?? ''),
+    paymentStatus: 'paid',
+  }
+  payConfirmOpen.value = true
+
+  // Попробуем найти локальную бронь для обновления paymentStatus
+  try {
+    const local = await $fetch<any>(`${apiUrl}/rent-user/admin/bookings/by-rentprog/${b.id}`, {
+      credentials: 'include',
+    }).catch(() => null)
+    payConfirmLocalId.value = local?.id ?? null
+  } catch { /* ignore */ }
+}
+
+async function savePayConfirm() {
+  if (!payConfirmBooking.value) return
+  payConfirmSaving.value = true
+  payConfirmError.value = null
+  payConfirmSuccess.value = false
+  try {
+    const paidAmount = Number(payConfirmForm.value.paidAmount)
+
+    // Обновить в RentProg
+    await $fetch(`${apiUrl}/rent/bookings/${payConfirmBooking.value.id}/update`, {
+      method: 'POST',
+      credentials: 'include',
+      body: { paid: paidAmount },
+    })
+
+    // Обновить локальную бронь (если нашли)
+    if (payConfirmLocalId.value) {
+      await $fetch(`${apiUrl}/rent-user/admin/bookings/${payConfirmLocalId.value}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        body: { paidAmount, paymentStatus: payConfirmForm.value.paymentStatus },
+      }).catch(() => { /* non-critical */ })
+    }
+
+    // Обновим локально в массиве
+    const idx = bookings.value.findIndex(b => b.id === payConfirmBooking.value!.id)
+    if (idx !== -1) bookings.value[idx] = { ...bookings.value[idx], paid: paidAmount }
+
+    payConfirmSuccess.value = true
+    setTimeout(() => { payConfirmOpen.value = false }, 1200)
+  } catch (e: any) {
+    payConfirmError.value = e?.data?.message || 'Ошибка сохранения'
+  } finally {
+    payConfirmSaving.value = false
+  }
+}
+
 // ─── Редактирование ──────────────────────────────────────────────────────────
 const editOpen = ref(false)
 const editBooking = ref<RentProgBooking | null>(null)
@@ -412,6 +524,18 @@ async function saveEdit() {
                   Изменить
                 </button>
                 <button
+                  class="text-xs px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:opacity-80 transition whitespace-nowrap"
+                  @click="openPayConfirm(b)"
+                >
+                  Оплата
+                </button>
+                <button
+                  class="text-xs px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition whitespace-nowrap"
+                  @click="openProfile(b)"
+                >
+                  Профиль
+                </button>
+                <button
                   v-if="b.depositStatus === 'held'"
                   class="text-xs px-3 py-1.5 bg-green-600 text-white rounded-lg hover:opacity-80 transition whitespace-nowrap"
                   @click="openComplete(b)"
@@ -572,15 +696,27 @@ async function saveEdit() {
             </div>
           </div>
 
-          <div class="flex gap-3 mt-5">
+          <div class="flex flex-wrap gap-2 mt-5">
             <button
-              class="flex-1 py-2.5 bg-primary text-white rounded-xl text-sm font-medium hover:opacity-90 transition"
+              class="flex-1 py-2.5 bg-primary text-white rounded-xl text-sm font-medium hover:opacity-90 transition min-w-0"
               @click="detailOpen = false; openEdit(detailBooking)"
             >
               Редактировать
             </button>
             <button
-              class="px-5 py-2.5 border border-gray-200 rounded-xl text-sm font-medium hover:bg-gray-50 transition"
+              class="py-2.5 px-4 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:opacity-90 transition"
+              @click="detailOpen = false; openPayConfirm(detailBooking)"
+            >
+              Оплата
+            </button>
+            <button
+              class="py-2.5 px-4 border border-gray-200 rounded-xl text-sm font-medium hover:bg-gray-50 transition"
+              @click="detailOpen = false; openProfile(detailBooking)"
+            >
+              Профиль
+            </button>
+            <button
+              class="w-full py-2.5 border border-gray-200 rounded-xl text-sm font-medium hover:bg-gray-50 transition"
               @click="detailOpen = false"
             >
               Закрыть
@@ -675,6 +811,197 @@ async function saveEdit() {
       </div>
     </Teleport>
   </div>
+
+  <!-- ====== Попап профиля пользователя ====== -->
+  <Teleport to="body">
+    <div
+      v-if="profileOpen"
+      class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+      @click.self="profileOpen = false"
+    >
+      <div class="bg-white rounded-2xl p-6 max-w-lg w-full shadow-xl max-h-[90vh] overflow-y-auto">
+        <div class="flex items-start justify-between mb-5">
+          <div>
+            <h3 class="font-bold text-lg">Профиль пользователя</h3>
+            <p v-if="profileLocalBooking?.user" class="text-sm text-gray-500 mt-0.5">
+              {{ [profileLocalBooking.user.firstName, profileLocalBooking.user.lastName].filter(Boolean).join(' ') || profileLocalBooking.user.email }}
+            </p>
+          </div>
+          <button class="text-gray-400 hover:text-gray-600 text-xl leading-none" @click="profileOpen = false">✕</button>
+        </div>
+
+        <!-- Загрузка -->
+        <div v-if="profileLoading" class="space-y-3">
+          <div v-for="i in 4" :key="i" class="h-16 bg-gray-100 rounded-xl animate-pulse" />
+        </div>
+
+        <!-- Ошибка / нет данных -->
+        <div v-else-if="profileError" class="bg-yellow-50 border border-yellow-100 rounded-xl p-4 text-sm text-yellow-700">
+          <p class="font-medium mb-1">Данные не найдены</p>
+          <p>{{ profileError }}</p>
+        </div>
+
+        <!-- Данные профиля -->
+        <div v-else-if="profileData" class="space-y-4">
+          <!-- Аккаунт -->
+          <div v-if="profileLocalBooking?.user" class="rounded-xl border border-gray-100 p-4">
+            <p class="text-xs text-gray-400 uppercase font-medium mb-3">Аккаунт</p>
+            <div class="grid grid-cols-2 gap-2 text-sm">
+              <div class="col-span-2">
+                <p class="text-xs text-gray-400">Email</p>
+                <p class="font-medium">{{ profileLocalBooking.user.email }}</p>
+              </div>
+              <div v-if="profileLocalBooking.user.phone">
+                <p class="text-xs text-gray-400">Телефон</p>
+                <p class="font-medium">{{ profileLocalBooking.user.phone }}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Паспорт -->
+          <div class="rounded-xl border border-gray-100 p-4">
+            <p class="text-xs text-gray-400 uppercase font-medium mb-3">Паспортные данные</p>
+            <div class="grid grid-cols-2 gap-2 text-sm">
+              <div>
+                <p class="text-xs text-gray-400">Серия</p>
+                <p class="font-medium">{{ profileData.passportSeries || '—' }}</p>
+              </div>
+              <div>
+                <p class="text-xs text-gray-400">Номер</p>
+                <p class="font-medium">{{ profileData.passportNumber || '—' }}</p>
+              </div>
+              <div class="col-span-2">
+                <p class="text-xs text-gray-400">Кем выдан</p>
+                <p class="font-medium">{{ profileData.passportIssuedBy || '—' }}</p>
+              </div>
+              <div>
+                <p class="text-xs text-gray-400">Дата выдачи</p>
+                <p class="font-medium">{{ formatDate(profileData.passportIssuedDate) }}</p>
+              </div>
+              <div>
+                <p class="text-xs text-gray-400">Код подразделения</p>
+                <p class="font-medium">{{ profileData.passportCode || '—' }}</p>
+              </div>
+              <div class="col-span-2">
+                <p class="text-xs text-gray-400">Адрес регистрации</p>
+                <p class="font-medium">{{ profileData.registrationAddress || '—' }}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Водительское удостоверение -->
+          <div class="rounded-xl border border-gray-100 p-4">
+            <p class="text-xs text-gray-400 uppercase font-medium mb-3">Водительское удостоверение</p>
+            <div class="grid grid-cols-2 gap-2 text-sm">
+              <div class="col-span-2">
+                <p class="text-xs text-gray-400">Номер ВУ</p>
+                <p class="font-medium">{{ profileData.licenseNumber || '—' }}</p>
+              </div>
+              <div>
+                <p class="text-xs text-gray-400">Дата выдачи</p>
+                <p class="font-medium">{{ formatDate(profileData.licenseIssuedDate) }}</p>
+              </div>
+              <div>
+                <p class="text-xs text-gray-400">Действительно до</p>
+                <p class="font-medium">{{ formatDate(profileData.licenseExpiryDate) }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button
+          class="w-full mt-5 py-2.5 border border-gray-200 rounded-xl text-sm font-medium hover:bg-gray-50 transition"
+          @click="profileOpen = false"
+        >
+          Закрыть
+        </button>
+      </div>
+    </div>
+  </Teleport>
+
+  <!-- ====== Попап подтверждения оплаты ====== -->
+  <Teleport to="body">
+    <div
+      v-if="payConfirmOpen && payConfirmBooking"
+      class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+      @click.self="payConfirmOpen = false"
+    >
+      <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+        <h3 class="font-bold text-lg mb-1">Подтверждение оплаты</h3>
+        <p class="text-sm text-gray-500 mb-4">
+          Бронь #{{ payConfirmBooking.id }} · {{ payConfirmBooking ? carName(payConfirmBooking) : '' }}
+        </p>
+
+        <!-- Текущее состояние -->
+        <div class="bg-gray-50 rounded-xl p-3 mb-4 text-sm">
+          <div class="flex justify-between">
+            <span class="text-gray-500">Итого к оплате</span>
+            <span class="font-semibold">{{ formatMoney(payConfirmBooking.total ?? payConfirmBooking.rental_cost) ?? '—' }}</span>
+          </div>
+          <div v-if="payConfirmBooking.paid != null" class="flex justify-between mt-1">
+            <span class="text-gray-500">Уже оплачено</span>
+            <span class="font-semibold text-green-600">{{ formatMoney(payConfirmBooking.paid) }}</span>
+          </div>
+          <div v-if="payConfirmBooking.debt != null" class="flex justify-between mt-1">
+            <span class="text-gray-500">Долг</span>
+            <span :class="['font-semibold', debtColor(payConfirmBooking)]">{{ formatMoney(payConfirmBooking.debt) ?? '0 ₽' }}</span>
+          </div>
+        </div>
+
+        <div class="space-y-3">
+          <!-- Сумма -->
+          <div>
+            <label class="text-xs text-gray-500 block mb-1">Сумма оплаты (₽)</label>
+            <input
+              v-model="payConfirmForm.paidAmount"
+              type="number"
+              min="0"
+              placeholder="0"
+              class="w-full h-10 rounded-xl border border-gray-200 px-3 text-sm focus:outline-none focus:border-primary transition"
+            >
+          </div>
+
+          <!-- Статус оплаты -->
+          <div>
+            <label class="text-xs text-gray-500 block mb-1">Статус оплаты</label>
+            <div class="flex gap-2">
+              <button
+                v-for="opt in [{ value: 'paid', label: 'Оплачено', color: 'bg-green-600' }, { value: 'partial', label: 'Частично', color: 'bg-yellow-500' }, { value: 'unpaid', label: 'Не оплачено', color: 'bg-gray-400' }]"
+                :key="opt.value"
+                :class="['flex-1 py-2 rounded-xl text-xs font-medium transition border-2', payConfirmForm.paymentStatus === opt.value ? `${opt.color} text-white border-transparent` : 'border-gray-200 text-gray-600 hover:border-gray-300']"
+                @click="payConfirmForm.paymentStatus = opt.value as any"
+              >
+                {{ opt.label }}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Успех -->
+        <div v-if="payConfirmSuccess" class="mt-3 bg-green-50 border border-green-100 rounded-xl p-3 text-sm text-green-700 text-center font-medium">
+          ✓ Оплата подтверждена
+        </div>
+
+        <p v-if="payConfirmError" class="text-red-500 text-xs mt-3">{{ payConfirmError }}</p>
+
+        <div class="flex gap-3 mt-5">
+          <button
+            :disabled="payConfirmSaving || payConfirmSuccess"
+            class="flex-1 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
+            @click="savePayConfirm"
+          >
+            {{ payConfirmSaving ? 'Сохранение...' : 'Подтвердить оплату' }}
+          </button>
+          <button
+            class="px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-medium hover:bg-gray-50 transition"
+            @click="payConfirmOpen = false"
+          >
+            Отмена
+          </button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 
   <!-- ====== Попап завершения аренды ====== -->
   <Teleport to="body">
