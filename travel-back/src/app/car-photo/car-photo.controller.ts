@@ -28,7 +28,7 @@ export class CarPhotoController {
       throw new ForbiddenException('Нет доступа')
     }
 
-    const results = []
+    const results: any[] = []
     // Читаем все файлы из multipart
     const parts = (req as any).parts()
     for await (const part of parts) {
