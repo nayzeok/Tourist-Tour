@@ -58,7 +58,7 @@ export class RentUserController {
     }
 
     await this.mail.sendMail({
-      to: 'nayzeok@gmail.com',
+      to: 'gora.market@bk.ru',
       subject: 'Запрос на отмену оплаченного бронирования аренды авто',
       html: `
         <p>Пользователь запросил отмену <b>оплаченного</b> бронирования аренды автомобиля.</p>
@@ -94,7 +94,7 @@ export class RentUserController {
     const profile = await this.svc.getProfile(user.id)
 
     await this.mail.sendMail({
-      to: 'nayzeok@gmail.com',
+      to: 'gora.market@bk.ru',
       subject: 'Запрос на изменение данных аренды',
       html: `
         <p>Пользователь запросил изменение заблокированных данных.</p>

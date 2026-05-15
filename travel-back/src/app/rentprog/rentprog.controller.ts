@@ -300,7 +300,7 @@ export class RentProgController {
 
       // Письмо администратору (сырой HTML)
       this.mail.sendMail({
-        to: 'nayzeok@gmail.com',
+        to: 'gora.market@bk.ru',
         subject: `Новое бронирование аренды авто: ${carName}`,
         html: `
           <h2>Новое бронирование аренды автомобиля</h2>

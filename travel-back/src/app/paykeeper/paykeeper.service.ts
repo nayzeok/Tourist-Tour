@@ -464,7 +464,7 @@ export class PayKeeperService implements OnModuleInit {
 
     // Письмо администратору (сырой HTML)
     this.mail.sendMail({
-      to: 'nayzeok@gmail.com',
+      to: 'gora.market@bk.ru',
       subject: `Оплачено бронирование аренды авто: ${booking.carName}`,
       html: `
         <h2>Бронирование аренды автомобиля оплачено</h2>
