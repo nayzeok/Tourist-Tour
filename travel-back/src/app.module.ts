@@ -24,6 +24,7 @@ import { SyncModule } from '~/app/sync/sync.module'
 import { PayKeeperModule } from '~/app/paykeeper/paykeeper.module'
 import { RentProgModule } from '~/app/rentprog/rentprog.module'
 import { RentUserModule } from '~/app/rent-user/rent-user.module'
+import { CarPhotoModule } from '~/app/car-photo/car-photo.module'
 
 @Module({
   imports: [
@@ -74,6 +75,7 @@ import { RentUserModule } from '~/app/rent-user/rent-user.module'
     PayKeeperModule,
     RentProgModule,
     RentUserModule,
+    CarPhotoModule,
   ],
 
   controllers: [],

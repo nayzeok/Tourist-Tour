@@ -3,6 +3,7 @@ import { AppModule } from '~/app.module'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
 import { ConfigService, ConfigType } from '@nestjs/config'
 import fastifyCookie from '@fastify/cookie'
+import fastifyMultipart from '@fastify/multipart'
 import {
   FastifyAdapter,
   NestFastifyApplication,
@@ -30,6 +31,10 @@ async function bootstrap() {
   await app.register(fastifyHelmet, {
     crossOriginResourcePolicy: { policy: 'cross-origin' },
     contentSecurityPolicy: false, // Отключаем CSP для dev, можно настроить для prod
+  })
+
+  await app.register(fastifyMultipart, {
+    limits: { fileSize: 10 * 1024 * 1024, files: 10 }, // 10 MB, до 10 файлов
   })
 
   // Статика: /uploads/* → ./uploads/

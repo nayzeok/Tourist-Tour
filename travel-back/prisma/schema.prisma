@@ -83,6 +83,17 @@ model RentBooking {
   @@index([rentprogId])
 }
 
+model CarPhoto {
+  id        String   @id @default(dbgenerated("gen_random_uuid()::text"))
+  carId     String   // ID авто в RentProg
+  filename  String
+  url       String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([carId])
+}
+
 model UserProfile {
   id                  String   @id @default(dbgenerated("uuid_generate_v4()"))
   user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)

@@ -32,6 +32,10 @@ const accMenu = computed(() => {
       title: 'Аренда авто (админ)',
       url: '/acc/admin/rent',
     })
+    baseMenu.push({
+      title: 'Фото автомобилей',
+      url: '/acc/admin/cars',
+    })
   }
 
   baseMenu.push({
