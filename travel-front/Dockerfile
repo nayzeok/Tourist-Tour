@@ -9,6 +9,12 @@ COPY package*.json ./
 # Install dependencies
 RUN npm install
 
+# Build args
+ARG BASE_URL
+ARG NUXT_PUBLIC_RENTPROG_TOKEN
+ENV BASE_URL=$BASE_URL
+ENV NUXT_PUBLIC_RENTPROG_TOKEN=$NUXT_PUBLIC_RENTPROG_TOKEN
+
 # Copy source code
 COPY . .
 
