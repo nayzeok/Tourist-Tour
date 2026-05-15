@@ -74,6 +74,8 @@ const allImages = computed(() => {
 
 // Галерея
 const activePhoto = ref(0)
+function prevPhoto() { activePhoto.value = (activePhoto.value - 1 + allImages.value.length) % allImages.value.length }
+function nextPhoto() { activePhoto.value = (activePhoto.value + 1) % allImages.value.length }
 
 // Выбранные опции
 const selectedOptions = ref<string[]>([])
@@ -138,10 +140,11 @@ async function confirmBooking() {
       phone: form.value.phone.replace(/\D/g, ''),
     })
     bookingOpen.value = false
-    await router.push({
+    const successUrl = router.resolve({
       path: '/rent/booking/success',
       query: { bookingId: result.booking.id, number: result.booking.number },
-    })
+    }).href
+    window.open(successUrl, '_blank')
   } catch (e: unknown) {
     formError.value = e instanceof Error ? e.message : 'Ошибка при создании бронирования'
   } finally {
@@ -197,7 +200,7 @@ function goBack() {
       <!-- ЛЕВАЯ ЧАСТЬ -->
       <div>
         <!-- Галерея -->
-        <div class="rounded-2xl overflow-hidden bg-gray-50 h-64 lg:h-80 mb-3 relative" style="max-height:320px">
+        <div class="rounded-2xl overflow-hidden bg-gray-50 mb-3 relative" style="height:320px;max-height:320px">
           <img
             v-if="allImages[activePhoto]"
             :src="allImages[activePhoto]"
@@ -206,17 +209,26 @@ function goBack() {
             style="max-height:320px"
           >
           <div v-else class="w-full h-full flex items-center justify-center text-7xl">🚗</div>
-        </div>
-        <div v-if="allImages.length > 1" class="flex gap-2 overflow-x-auto pb-1">
-          <button
-            v-for="(img, i) in allImages"
-            :key="i"
-            class="flex-shrink-0 w-20 h-14 rounded-xl overflow-hidden border-2 transition"
-            :class="activePhoto === i ? 'border-primary' : 'border-transparent'"
-            @click="activePhoto = i"
-          >
-            <img :src="img" :alt="`Фото ${i + 1}`" class="w-full h-full object-cover">
-          </button>
+
+          <!-- Стрелки навигации -->
+          <template v-if="allImages.length > 1">
+            <button
+              class="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 bg-white/80 hover:bg-white rounded-full shadow flex items-center justify-center text-gray-700 transition"
+              @click="prevPhoto"
+            >
+              ‹
+            </button>
+            <button
+              class="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 bg-white/80 hover:bg-white rounded-full shadow flex items-center justify-center text-gray-700 transition"
+              @click="nextPhoto"
+            >
+              ›
+            </button>
+            <!-- Счётчик -->
+            <div class="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/40 text-white text-xs px-2.5 py-1 rounded-full">
+              {{ activePhoto + 1 }} / {{ allImages.length }}
+            </div>
+          </template>
         </div>
 
         <!-- Заголовок -->
